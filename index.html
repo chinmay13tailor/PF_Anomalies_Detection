@@ -310,7 +310,7 @@ function renderPFTrend(rows){
     {x:t, y:kw,   name:"Active Power (kW)",    mode:"lines", yaxis:"y2"}
   ], {
     margin:{l:50,r:60,t:10,b:30},
-    yaxis:{title:"PF", range:[0,1]},
+    yaxis:{title:"PF", range:[0,1.2]},
     yaxis2:{title:"kW / kVAr", overlaying:"y", side:"right"},
     shapes:[
       {type:"line", x0:t[0], x1:t.at(-1), y0:0.95, y1:0.95, line:{dash:"dot", color:"#f1c40f"}},
