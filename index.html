@@ -8,7 +8,7 @@
   <!-- Plotly (pinned) -->
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 
-  <!-- PDF deps (explicit) -->
+  <!-- PDF deps -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
@@ -42,7 +42,8 @@
     .panel{width:95%;margin:1rem auto;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:1rem}
     .panel h3{margin:.2rem 0 1rem}
 
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    /* PAGE-2: force vertical layout (one chart per line) */
+    .grid2{display:grid;grid-template-columns:1fr;gap:0.9rem}
 
     .table-wrap{overflow:auto}
     table{width:100%;border-collapse:collapse;background:#fff;table-layout:fixed}
@@ -55,35 +56,29 @@
       grid-template-columns:minmax(0,2fr) minmax(260px,1fr);
       gap:1rem; align-items:start;
     }
-    .remarks{display:flex;flex-direction:column}
     .remarks textarea{
       width:100%; min-height:130px; resize:vertical;
       border:1px solid #d0d7de; border-radius:8px; padding:.6rem; background:#fff;
     }
-    .sign{display:flex;flex-direction:column;gap:22px}
-    .sign .block{display:flex;flex-direction:column}
+    .sign{display:flex;flex-direction:column;gap:20px}
     .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:10px}
 
     @media (max-width:980px){
       .summary-row{grid-template-columns:1fr 1fr}
-      .grid2{grid-template-columns:1fr}
       .footer{grid-template-columns:1fr}
     }
 
-    /* -------- PDF MODE (A4 landscape, tighter) -------- */
-    /* Each .pdf-page is one PDF page */
+    /* -------- PDF MODE (A4 landscape, tight) -------- */
+    /* Each .pdf-page becomes one PDF page */
     body.pdf .pdf-page{
-      width:285mm;                 /* slightly wider for sharper capture */
+      width:294mm;               /* wide capture for clarity */
       background:#fff;
-      margin-left:auto; margin-right:auto;
-      padding:4mm 6mm;             /* tighter inner padding */
+      margin:0 auto;
+      padding:2mm 3mm;           /* very tight inner padding */
     }
-    /* Tighten panel spacing only in PDF */
-    body.pdf .panel{ padding:10px 12px; margin:10px auto; width:98%; }
-    body.pdf .summary-row{ width:98%; gap:.7rem; }
-    body.pdf .footer{ width:98%; gap:.7rem; }
-    /* IMPORTANT: Stack the two charts vertically on Page 2 in PDF */
-    body.pdf #pdfPage2 .grid2{ grid-template-columns:1fr; gap:.8rem; }
+    body.pdf .panel{ padding:8px 10px; margin:8px auto; width:99%; }
+    body.pdf .summary-row{ width:99%; gap:.6rem; }
+    body.pdf .footer{ width:99%; gap:.6rem; }
   </style>
 </head>
 <body>
@@ -103,7 +98,7 @@
     </div>
   </div>
 
-  <!-- Printable area split into 3 explicit pages -->
+  <!-- Printable area split into 3 pages -->
   <div id="printArea">
     <!-- PAGE 1 -->
     <section class="pdf-page" id="pdfPage1">
@@ -133,9 +128,9 @@
       </div>
     </section>
 
-    <!-- PAGE 2 (VERTICAL charts) -->
+    <!-- PAGE 2 (vertical charts) -->
     <section class="pdf-page" id="pdfPage2">
-      <div class="grid2">
+      <div class="grid2" id="page2Grid">
         <div class="panel">
           <h3>Hourly kWh vs kVArh</h3>
           <div id="energyBars" style="height:340px;"></div>
@@ -170,8 +165,8 @@
           <textarea placeholder="Engineer notes..."></textarea>
         </div>
         <div class="sign">
-          <div class="block"><div>Reviewed by</div><div class="line"></div></div>
-          <div class="block"><div>Checked by</div><div class="line"></div></div>
+          <div>Reviewed by<div class="line"></div></div>
+          <div>Checked by<div class="line"></div></div>
         </div>
       </div>
     </section>
@@ -189,13 +184,8 @@ const CONFIG = {
   DEMAND_RATE_INR_PER_KVA: 350,
   DEFAULT_DEVICE_ID: "a41ff8c0-ce7c-11ef-826c-29d63551db41",
   KEYS: [
-    "Active_Power",
-    "Apparent_Power",
-    "Reactive_Power",
-    "Power_Factor",
-    "PrrMinConsumption",
-    "Apparent_Energy",
-    "Reactive_Energy"
+    "Active_Power","Apparent_Power","Reactive_Power",
+    "Power_Factor","PrrMinConsumption","Apparent_Energy","Reactive_Energy"
   ]
 };
 /* =============== */
@@ -223,7 +213,6 @@ function fmtTs(t){ return new Date(t).toLocaleString(); }
 function isF(v){ return Number.isFinite(v); }
 function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 
-/* FETCH — agg=NONE */
 async function fetchTS(deviceId, keysCsv, startTs, endTs){
   const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
               `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
@@ -233,7 +222,6 @@ async function fetchTS(deviceId, keysCsv, startTs, endTs){
   return res.json();
 }
 
-/* Merge TB response into aligned rows */
 function mergeSeries(obj){
   const map = new Map();
   Object.entries(obj).forEach(([key,arr])=>{
@@ -247,7 +235,6 @@ function mergeSeries(obj){
   return Array.from(map.values()).sort((a,b)=>a.ts-b.ts);
 }
 
-/* Light smoothing for PF */
 function smoothPF(rows, n=5){
   const q=[]; let sum=0;
   for (let i=0;i<rows.length;i++){
@@ -256,7 +243,6 @@ function smoothPF(rows, n=5){
   }
 }
 
-/* Hourly aggregates */
 function hourlyEnergyFromRows(rows){
   const byHour = new Map();
   rows.forEach(r=>{
@@ -280,7 +266,6 @@ function hourlyEnergyFromRows(rows){
   return out;
 }
 
-/* Detect PF < threshold contiguous events */
 function detectLowPFEvents(rows, thr){
   const events=[]; let cur=null;
   for (let i=0;i<rows.length;i++){
@@ -302,7 +287,6 @@ function detectLowPFEvents(rows, thr){
   return events;
 }
 
-/* Penalty estimate (simple proportional method) */
 function estimatePenalty(rows){
   let penalty = 0;
   for (let i=1;i<rows.length;i++){
@@ -318,7 +302,6 @@ function estimatePenalty(rows){
   return Math.round(penalty);
 }
 
-/* Rendering */
 function renderKPIs(rows, events){
   const pfs = rows.map(r=>r.PF).filter(isF);
   const avg = pfs.length ? pfs.reduce((s,x)=>s+x,0)/pfs.length : NaN;
@@ -336,8 +319,7 @@ function renderKPIs(rows, events){
 }
 
 function renderPFTrend(rows){
-  const el = document.getElementById("pfTrend");
-  if (!rows.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
+  if (!rows.length){ document.getElementById("pfTrend").innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
   const t   = rows.map(r=>new Date(r.ts));
   const pf  = rows.map(r=>r.PF);
   const kw  = rows.map(r=>r.kW);
@@ -353,9 +335,7 @@ function renderPFTrend(rows){
     yaxis2:{title:"kW / kVAr", overlaying:"y", side:"right"},
     shapes:[
       {type:"line", x0:t[0], x1:t.at(-1), y0:0.95, y1:0.95, line:{dash:"dot", color:"#f1c40f"}},
-      {type:"line", x0:t[0], x1:t.at(-1), y0:0.90, y1:0.90, line:{dash:"dot", color:"#e74c3c"}}
-    ],
-    legend:{orientation:"h"}
+      {type:"line", x0:t[0], x1:t.at(-1), y0:0.90, y1:0.90, line:{dash:"dot", color:"#e74c3c"}]
   }, {displaylogo:false,responsive:true});
 }
 
@@ -394,7 +374,6 @@ function renderEvents(events){
   });
 }
 
-/* Generate */
 async function generate(){
   const dateStr = document.getElementById("dateInput").value;
   if (!JWT){ alert("Missing token in URL (?token=)"); return; }
@@ -443,7 +422,6 @@ async function generate(){
   }
 }
 
-/* Resize Plotly charts to current layout width */
 function resizePlots(){
   ['pfTrend','energyBars','pfScatter'].forEach(id=>{
     const el=document.getElementById(id);
@@ -451,21 +429,20 @@ function resizePlots(){
   });
 }
 
-/* -------- EXPORT: 3 explicit PDF pages (landscape, tighter margins) -------- */
+/* Export: 3 explicit PDF pages (landscape), near-zero margins */
 async function exportPDF(){
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
   if (!jsPDFCtor){ alert('jsPDF failed to load. Check CDN connectivity.'); return; }
 
   const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
 
-  // Switch to PDF layout width & (for page 2) stack charts vertically
   document.body.classList.add('pdf');
   await new Promise(r=>setTimeout(r,120));
   resizePlots();
-  await new Promise(r=>setTimeout(r,160));
+  await new Promise(r=>setTimeout(r,140));
 
   const pdf = new jsPDFCtor({ orientation:'landscape', unit:'mm', format:'a4' });
-  const margin = 6;  // tighter outer margin
+  const margin = 0;  // minimal outer margin
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
 
@@ -486,7 +463,7 @@ async function exportPDF(){
   };
 
   await addPage(document.getElementById('pdfPage1'), true);
-  await addPage(document.getElementById('pdfPage2')); // stacked vertically in PDF mode
+  await addPage(document.getElementById('pdfPage2'));
   await addPage(document.getElementById('pdfPage3'));
 
   pdf.save(`Low_PF_Report_${dateStr}.pdf`);
@@ -496,10 +473,6 @@ async function exportPDF(){
   resizePlots();
 }
 
-document.getElementById("btnGenerate").addEventListener("click", generate);
-document.getElementById("btnExport").addEventListener("click", exportPDF);
-
-// Auto-run if token present
 window.addEventListener("load", ()=>{ if (JWT){ generate(); } });
 </script>
 </body>
