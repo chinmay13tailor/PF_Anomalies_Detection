@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
+    *{box-sizing:border-box}
     body{font-family:'Segoe UI',sans-serif;background:#f5f7fa;margin:0;color:#333}
     .page{padding:2rem}
     .header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:1rem}
@@ -28,13 +29,38 @@
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
     .table-wrap{overflow:auto}
     table{width:100%;border-collapse:collapse;background:#fff}
-    th,td{padding:.8rem 1rem;border-bottom:1px solid #eee;text-align:center}
+    th,td{padding:.8rem 1rem;border-bottom:1px solid #eee;text-align:center;white-space:nowrap}
     thead th{background:#ffd700;color:#222}
     tbody tr:nth-child(even){background:#fafafa}
-    .footer{width:95%;margin:1rem auto 0;display:grid;grid-template-columns:2fr 1fr;gap:1rem}
-    .footer textarea{width:100%;min-height:90px;border:1px solid #d0d7de;border-radius:8px;padding:.6rem}
-    .sign .line{border-bottom:2px solid #333;height:28px;margin-top:24px}
-    @media (max-width:980px){.summary-row{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+
+    /* --- Footer fix (no overlap) --- */
+    .footer{
+      width:95%;
+      margin:1rem auto 0;
+      display:grid;
+      grid-template-columns:minmax(0,2fr) minmax(260px,1fr);
+      gap:1rem;
+      align-items:start;
+    }
+    .remarks{display:flex;flex-direction:column}
+    .remarks textarea{
+      width:100%;
+      min-height:130px;
+      resize:vertical;
+      border:1px solid #d0d7de;
+      border-radius:8px;
+      padding:.6rem;
+      background:#fff;
+    }
+    .sign{display:flex;flex-direction:column;gap:28px}
+    .sign .block{display:flex;flex-direction:column}
+    .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:12px}
+
+    @media (max-width:980px){
+      .summary-row{grid-template-columns:1fr 1fr}
+      .grid2{grid-template-columns:1fr}
+      .footer{grid-template-columns:1fr}
+    }
   </style>
 </head>
 <body>
@@ -49,12 +75,11 @@
       <div><b>Report:</b> Low Power Factor Analysis Report</div>
       <div><b>Report Date:</b> <span id="reportDateLabel">—</span></div>
       <div><b>Generated:</b> <span id="generatedAt">—</span></div>
-      <!-- Optional: show device id -->
       <div><b>Device:</b> <span id="deviceShown">—</span></div>
     </div>
   </div>
 
-  <!-- Controls (Device input removed) -->
+  <!-- Controls -->
   <div class="filter-row">
     <div>
       <label for="dateInput">Select Date</label>
@@ -105,7 +130,7 @@
     </div>
   </div>
 
-  <!-- Events -->
+  <!-- Events (Notes column removed) -->
   <div class="panel">
     <h3>Events Table (PF &lt; 0.90)</h3>
     <div class="table-wrap">
@@ -113,24 +138,29 @@
         <thead>
           <tr>
             <th>Start</th><th>End</th><th>Min PF</th>
-            <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th><th>Notes</th>
+            <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th>
           </tr>
         </thead>
-        <tbody id="eventsBody"><tr><td colspan="8">Click Generate</td></tr></tbody>
+        <tbody id="eventsBody"><tr><td colspan="7">Click Generate</td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <!-- Footer -->
+  <!-- Footer (no overlap now) -->
   <div class="footer">
-    <div>
+    <div class="remarks">
       <div><b>Remarks</b></div>
       <textarea placeholder="Engineer notes..."></textarea>
     </div>
     <div class="sign">
-      <div>Reviewed by</div><div class="line"></div>
-      <div style="height:10px"></div>
-      <div>Checked by</div><div class="line"></div>
+      <div class="block">
+        <div>Reviewed by</div>
+        <div class="line"></div>
+      </div>
+      <div class="block">
+        <div>Checked by</div>
+        <div class="line"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -145,7 +175,6 @@ const CONFIG = {
   LOW_PF_THRESHOLD: 0.90,
   DEMAND_RATE_INR_PER_KVA: 350,
   DEFAULT_DEVICE_ID: "a41ff8c0-ce7c-11ef-826c-29d63551db41",
-  // Exact keys:
   KEYS: [
     "Active_Power",
     "Apparent_Power",
@@ -160,7 +189,7 @@ const CONFIG = {
 
 const qs = new URLSearchParams(location.search);
 const JWT = qs.get("token") || "";
-const URL_DEVICE = qs.get("deviceId") || ""; // optional override via URL
+const URL_DEVICE = qs.get("deviceId") || "";
 const DEVICE_ID = URL_DEVICE || CONFIG.DEFAULT_DEVICE_ID;
 
 document.getElementById("companyName").textContent = CONFIG.COMPANY_NAME;
@@ -213,10 +242,7 @@ function smoothPF(rows, n=5){
   }
 }
 
-/* Hourly aggregates:
-   - kWh = sum of PrrMinConsumption in the hour
-   - kVArh = (max - min) of Reactive_Energy (cumulative) in the hour
-*/
+/* Hourly aggregates */
 function hourlyEnergyFromRows(rows){
   const byHour = new Map();
   rows.forEach(r=>{
@@ -342,12 +368,12 @@ function renderScatter(rows){
 function renderEvents(events){
   const tb = document.getElementById("eventsBody");
   tb.innerHTML = "";
-  if (!events.length){ tb.innerHTML = '<tr><td colspan="8">No low PF events</td></tr>'; return; }
+  if (!events.length){ tb.innerHTML = '<tr><td colspan="7">No low PF events</td></tr>'; return; }
   events.forEach(e=>{
     const tr = document.createElement("tr");
     [fmtTs(e.startTs), fmtTs(e.endTs), e.minPF.toFixed(2),
      (e.kW??0).toFixed(0), (e.kVAr??0).toFixed(0), (e.kVA??0).toFixed(0),
-     e.durationMin, ""].forEach(v=>{
+     e.durationMin].forEach(v=>{
       const td=document.createElement("td"); td.textContent=v; tr.appendChild(td);
     });
     tb.appendChild(tr);
@@ -368,13 +394,7 @@ async function generate(){
   const end   = new Date(dateStr+"T23:59:59");
 
   try{
-    // Fetch all keys in one call (agg=NONE)
-    const json = await fetchTS(
-      DEVICE_ID,
-      CONFIG.KEYS.join(","),
-      start.getTime(),
-      end.getTime()
-    );
+    const json = await fetchTS(DEVICE_ID, CONFIG.KEYS.join(","), start.getTime(), end.getTime());
 
     const rows = mergeSeries(json).map(r=>{
       const kW   = num(r.Active_Power);
@@ -411,10 +431,8 @@ async function generate(){
   }
 }
 
-// Auto-run when token present
-window.addEventListener("load", ()=>{
-  if (JWT){ generate(); }
-});
+// Auto-run if token present
+window.addEventListener("load", ()=>{ if (JWT){ generate(); } });
 </script>
 </body>
 </html>
