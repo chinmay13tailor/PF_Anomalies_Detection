@@ -142,7 +142,7 @@
 const CONFIG = {
   COMPANY_NAME: "Pima Controls Pvt Ltd",
   COMPANY_ADDRESS: "Ahmedabad, India",
-  API_BASE_URL: "https://thingsboard.cloud/api",
+  API_BASE_URL: "https://plantwiz.pimateck.in/api",   // << your base
   PF_TARGET: 0.95,
   LOW_PF_THRESHOLD: 0.90,
   DEMAND_RATE_INR_PER_KVA: 350,
@@ -241,4 +241,192 @@ function hourlyEnergyFromRows(rows){
   return out;
 }
 
-/* Detect PF < threshold contig*
+/* Detect PF < threshold contiguous events */
+function detectLowPFEvents(rows, thr){
+  const events=[]; let cur=null;
+  for (let i=0;i<rows.length;i++){
+    const r = rows[i];
+    const low = isF(r.PF) && r.PF < thr;
+    if (low && !cur){
+      cur = { startTs:r.ts, minPF:r.PF, at:r.ts, kW:r.kW, kVAr:r.kVAr, kVA:r.kVA };
+    }
+    if (low && cur && r.PF < cur.minPF){
+      cur.minPF = r.PF; cur.at = r.ts; cur.kW = r.kW; cur.kVAr = r.kVAr; cur.kVA = r.kVA;
+    }
+    if (!low && cur){
+      cur.endTs = rows[i-1]?.ts ?? r.ts;
+      events.push(cur); cur=null;
+    }
+  }
+  if (cur){ cur.endTs = rows.at(-1)?.ts ?? cur.startTs; events.push(cur); }
+  events.forEach(e=> e.durationMin = Math.max(1, Math.round((e.endTs - e.startTs)/60000)) );
+  return events;
+}
+
+/* Penalty estimate (simple proportional method) */
+function estimatePenalty(rows){
+  let penalty = 0;
+  for (let i=1;i<rows.length;i++){
+    const a=rows[i-1], b=rows[i];
+    const dtDay = (b.ts - a.ts) / (24*3600*1000);
+    const PF = b.PF ?? a.PF;
+    const kVA = isF(b.kVA) ? b.kVA : (isF(a.kVA) ? a.kVA : 0);
+    if (isF(PF) && PF < CONFIG.LOW_PF_THRESHOLD && isF(kVA)){
+      const delta = Math.max(0, (1/PF) - (1/CONFIG.PF_TARGET));
+      penalty += kVA * delta * CONFIG.DEMAND_RATE_INR_PER_KVA * dtDay;
+    }
+  }
+  return Math.round(penalty);
+}
+
+/* Rendering */
+function renderKPIs(rows, events){
+  const pfs = rows.map(r=>r.PF).filter(isF);
+  const avg = pfs.length ? pfs.reduce((s,x)=>s+x,0)/pfs.length : NaN;
+  const minPF = pfs.length ? Math.min(...pfs) : NaN;
+  const minIdx = pfs.length ? pfs.indexOf(minPF) : -1;
+  const minTs  = minIdx>=0 ? rows[minIdx].ts : null;
+  const lowDur = events.reduce((s,e)=>s+e.durationMin,0);
+  const penalty = estimatePenalty(rows);
+
+  document.getElementById("kpiAvgPF").textContent = isF(avg)?avg.toFixed(2):"—";
+  document.getElementById("kpiMinPF").textContent = isF(minPF)?minPF.toFixed(2):"—";
+  document.getElementById("kpiMinPFTs").textContent = minTs?fmtTs(minTs):"—";
+  document.getElementById("kpiDurationLowPF").textContent = `${lowDur} min`;
+  document.getElementById("kpiPenalty").textContent = penalty.toLocaleString();
+}
+
+function renderPFTrend(rows){
+  const el = document.getElementById("pfTrend");
+  if (!rows.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
+  const t   = rows.map(r=>new Date(r.ts));
+  const pf  = rows.map(r=>r.PF);
+  const kw  = rows.map(r=>r.kW);
+  const kvar= rows.map(r=>r.kVAr);
+
+  Plotly.newPlot("pfTrend", [
+    {x:t, y:pf,   name:"Power Factor", mode:"lines", line:{width:2}},
+    {x:t, y:kvar, name:"Reactive Power (kVAr)", mode:"lines", yaxis:"y2"},
+    {x:t, y:kw,   name:"Active Power (kW)",    mode:"lines", yaxis:"y2"}
+  ], {
+    margin:{l:50,r:60,t:10,b:30},
+    yaxis:{title:"PF", range:[0,1]},
+    yaxis2:{title:"kW / kVAr", overlaying:"y", side:"right"},
+    shapes:[
+      {type:"line", x0:t[0], x1:t.at(-1), y0:0.95, y1:0.95, line:{dash:"dot", color:"#f1c40f"}},
+      {type:"line", x0:t[0], x1:t.at(-1), y0:0.90, y1:0.90, line:{dash:"dot", color:"#e74c3c"}}
+    ],
+    legend:{orientation:"h"}
+  }, {displaylogo:false,responsive:true});
+}
+
+function renderEnergyBars(hourly){
+  const el = document.getElementById("energyBars");
+  if (!hourly.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
+  const x = hourly.map(h=>new Date(h.ts));
+  Plotly.newPlot("energyBars", [
+    {x, y: hourly.map(h=>h.kWh),  name:"kWh (sum of PrrMinConsumption)",  type:"bar"},
+    {x, y: hourly.map(h=>h.kVArh),name:"kVArh (Δ Reactive_Energy)", type:"bar"}
+  ], {barmode:"group", margin:{l:40,r:10,t:10,b:30}}, {displaylogo:false,responsive:true});
+}
+
+function renderScatter(rows){
+  const el = document.getElementById("pfScatter");
+  if (!rows.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
+  const x = rows.map(r=>r.kW);
+  const y = rows.map(r=>r.PF);
+  Plotly.newPlot("pfScatter", [{x,y,mode:"markers",name:"PF vs kW"}],
+    {margin:{l:40,r:10,t:10,b:40}, xaxis:{title:"kW"}, yaxis:{title:"PF", range:[0,1]}},
+    {displaylogo:false,responsive:true});
+}
+
+function renderEvents(events){
+  const tb = document.getElementById("eventsBody");
+  tb.innerHTML = "";
+  if (!events.length){ tb.innerHTML = '<tr><td colspan="8">No low PF events</td></tr>'; return; }
+  events.forEach(e=>{
+    const tr = document.createElement("tr");
+    [fmtTs(e.startTs), fmtTs(e.endTs), e.minPF.toFixed(2),
+     (e.kW??0).toFixed(0), (e.kVAr??0).toFixed(0), (e.kVA??0).toFixed(0),
+     e.durationMin, ""].forEach(v=>{
+      const td=document.createElement("td"); td.textContent=v; tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+}
+
+/* Main Generate */
+async function generate(){
+  const dateStr = document.getElementById("dateInput").value;
+  const deviceId = (document.getElementById("deviceInput").value || "").trim();
+  if (!deviceId){ alert("Please enter Device ID"); return; }
+  if (!JWT){ alert("Missing token in URL (?token=)"); return; }
+
+  document.getElementById("status").textContent = "Fetching…";
+  document.getElementById("reportDateLabel").textContent = dateStr;
+  document.getElementById("generatedAt").textContent = new Date().toLocaleString();
+
+  const start = new Date(dateStr+"T00:00:00");
+  const end   = new Date(dateStr+"T23:59:59");
+
+  try{
+    // Fetch all keys in one call (agg=NONE), just like your reference
+    const json = await fetchTS(
+      deviceId,
+      CONFIG.KEYS.join(","),
+      start.getTime(),
+      end.getTime()
+    );
+
+    // Align & derive
+    const rows = mergeSeries(json).map(r=>{
+      const kW   = num(r.Active_Power);
+      const kVAr = num(r.Reactive_Power);
+      const kVA  = isF(r.Apparent_Power) ? r.Apparent_Power :
+                   (isF(kW)&&isF(kVAr)) ? Math.sqrt(kW*kW + kVAr*kVAr) : NaN;
+      const pf   = isF(r.Power_Factor) ? r.Power_Factor :
+                   (isF(kW)&&isF(kVA)&&kVA>0 ? kW/kVA : NaN);
+      return {
+        ts: r.ts,
+        kW, kVAr, kVA,
+        PF: pf,
+        PrrMinConsumption: num(r.PrrMinConsumption),
+        Reactive_Energy: num(r.Reactive_Energy),
+        Apparent_Energy: num(r.Apparent_Energy)
+      };
+    });
+
+    // Smooth PF
+    smoothPF(rows, 5);
+
+    // Hourly energy
+    const hourly = hourlyEnergyFromRows(rows);
+
+    // Low PF events
+    const events = detectLowPFEvents(rows, CONFIG.LOW_PF_THRESHOLD);
+
+    // Render
+    renderKPIs(rows, events);
+    renderPFTrend(rows);
+    renderEnergyBars(hourly);
+    renderScatter(rows);
+    renderEvents(events);
+
+    document.getElementById("status").textContent = "Done";
+  }catch(err){
+    console.error(err);
+    document.getElementById("status").textContent = "Error";
+    alert("Failed to fetch/build report.\n" + err.message);
+  }
+}
+
+// Auto-run when token + a device is available
+window.addEventListener("load", ()=>{
+  if (JWT && (URL_DEVICE || CONFIG.DEFAULT_DEVICE_ID)){
+    if (!URL_DEVICE) document.getElementById("deviceInput").value = CONFIG.DEFAULT_DEVICE_ID;
+    generate();
+  }
+});
+</script>
+</body>
+</html>
