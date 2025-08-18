@@ -325,29 +325,31 @@ function renderKPIs(rows, events){
 function renderPFTrend(rows){
   const el = document.getElementById("pfTrend");
   if (!rows.length){
-    el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; 
-    return; 
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>';
+    return;
   }
-  const t   = rows.map(r=>new Date(r.ts));
-  const pf  = rows.map(r=>r.PF);
-  const kw  = rows.map(r=>r.kW);
-  const kvar= rows.map(r=>r.kVAr);
+
+  const t    = rows.map(r => new Date(r.ts));
+  const pf   = rows.map(r => r.PF);
+  const kw   = rows.map(r => r.kW);
+  const kvar = rows.map(r => r.kVAr);
 
   Plotly.newPlot("pfTrend", [
-    {x:t, y:pf,   name:"Power Factor", mode:"lines", line:{width:2}},
-    {x:t, y:kvar, name:"Reactive Power (kVAr)", mode:"lines", yaxis:"y2"},
-    {x:t, y:kw,   name:"Active Power (kW)",    mode:"lines", yaxis:"y2"}
+    { x: t, y: pf,   name: "Power Factor",           mode: "lines", line: { width: 2 } },
+    { x: t, y: kvar, name: "Reactive Power (kVAr)",  mode: "lines", yaxis: "y2" },
+    { x: t, y: kw,   name: "Active Power (kW)",      mode: "lines", yaxis: "y2" }
   ], {
-    margin:{l:50,r:60,t:10,b:30},
-    yaxis:{title:"PF", range:[0,1.5]},
-    yaxis2:{title:"kW / kVAr", overlaying:"y", side:"right"},
-    shapes:[
-      {type:"line", x0:t[0], x1:t.at(-1), y0:0.95, y1:0.95, line:{dash:"dot", color:"#f1c40f"}},
-      {type:"line", x0:t[0], x1:t.at(-1), y0:0.90, y1:0.90, line:{dash:"dot", color:"#e74c3c"}}
+    margin: { l: 50, r: 60, t: 10, b: 30 },
+    yaxis:  { title: "PF", range: [0, 1.5] },
+    yaxis2: { title: "kW / kVAr", overlaying: "y", side: "right" },
+    shapes: [
+      { type: "line", x0: t[0], x1: t.at(-1), y0: 0.95, y1: 0.95, line: { dash: "dot", color: "#f1c40f" } },
+      { type: "line", x0: t[0], x1: t.at(-1), y0: 0.90, y1: 0.90, line: { dash: "dot", color: "#e74c3c" } }
     ],
-    legend:{orientation:"h"}
-  }, {displaylogo:false,responsive:true});
+    legend: { orientation: "h" }
+  }, { displaylogo: false, responsive: true });
 }
+
 
 function renderEnergyBars(hourly){
   const el = document.getElementById("energyBars");
