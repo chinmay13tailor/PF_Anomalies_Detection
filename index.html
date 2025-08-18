@@ -5,7 +5,7 @@
   <title>Low Power Factor Analysis Report</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <!-- PDF export helper (bundles html2canvas + jsPDF) -->
+  <!-- PDF export helper -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *{box-sizing:border-box}
@@ -34,6 +34,11 @@
     th,td{padding:.8rem 1rem;border-bottom:1px solid #eee;text-align:center;white-space:nowrap}
     thead th{background:#ffd700;color:#222}
     tbody tr:nth-child(even){background:#fafafa}
+
+    /* Keep whole sections on one PDF page */
+    .no-split{break-inside:avoid;page-break-inside:avoid;}
+    @media print{ .no-split{break-inside:avoid;page-break-inside:avoid;} }
+
     /* Footer layout (no overlap) */
     .footer{
       width:95%; margin:1rem auto 0; display:grid;
@@ -48,6 +53,7 @@
     .sign{display:flex;flex-direction:column;gap:28px}
     .sign .block{display:flex;flex-direction:column}
     .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:12px}
+
     @media (max-width:980px){
       .summary-row{grid-template-columns:1fr 1fr}
       .grid2{grid-template-columns:1fr}
@@ -58,7 +64,7 @@
 <body>
 <div class="page" id="reportRoot">
   <!-- Header -->
-  <div class="header">
+  <div class="header no-split">
     <div>
       <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
       <div id="companyAddress">Ahmedabad, India</div>
@@ -71,8 +77,8 @@
     </div>
   </div>
 
-  <!-- Controls -->
-  <div class="filter-row">
+  <!-- Controls (this block is visible on page, but excluded from PDF) -->
+  <div class="filter-row" data-html2canvas-ignore="true">
     <div>
       <label for="dateInput">Select Date</label>
       <input type="date" id="dateInput"/>
@@ -87,7 +93,7 @@
   </div>
 
   <!-- KPI row -->
-  <div class="summary-row">
+  <div class="summary-row no-split">
     <div class="kpi"><div class="title">Avg PF (window)</div><div class="value" id="kpiAvgPF">—</div></div>
     <div class="kpi"><div class="title">Min PF</div><div class="value" id="kpiMinPF">—</div><div class="sub" id="kpiMinPFTs">—</div></div>
     <div class="kpi"><div class="title">Duration PF &lt; 0.90</div><div class="value" id="kpiDurationLowPF">—</div></div>
@@ -95,25 +101,25 @@
   </div>
 
   <!-- PF Trend -->
-  <div class="panel">
+  <div class="panel no-split">
     <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
     <div id="pfTrend" style="height:380px;"></div>
   </div>
 
   <!-- Energy + Scatter -->
   <div class="grid2">
-    <div class="panel">
+    <div class="panel no-split">
       <h3>Hourly kWh vs kVArh</h3>
       <div id="energyBars" style="height:360px;"></div>
     </div>
-    <div class="panel">
+    <div class="panel no-split">
       <h3>PF vs kW</h3>
       <div id="pfScatter" style="height:360px;"></div>
     </div>
   </div>
 
   <!-- Events -->
-  <div class="panel">
+  <div class="panel no-split">
     <h3>Events Table (PF &lt; 0.90)</h3>
     <div class="table-wrap">
       <table>
@@ -129,7 +135,7 @@
   </div>
 
   <!-- Footer -->
-  <div class="footer">
+  <div class="footer no-split">
     <div class="remarks">
       <div><b>Remarks</b></div>
       <textarea placeholder="Engineer notes..."></textarea>
@@ -312,7 +318,7 @@ function renderPFTrend(rows){
     {x:t, y:kw,   name:"Active Power (kW)",    mode:"lines", yaxis:"y2"}
   ], {
     margin:{l:50,r:60,t:10,b:30},
-    yaxis:{title:"PF", range:[0,1.5]},                 /* <-- upper limit 1.5 */
+    yaxis:{title:"PF", range:[0,1.5]},     /* upper limit 1.5 */
     yaxis2:{title:"kW / kVAr", overlaying:"y", side:"right"},
     shapes:[
       {type:"line", x0:t[0], x1:t.at(-1), y0:0.95, y1:0.95, line:{dash:"dot", color:"#f1c40f"}},
@@ -338,7 +344,7 @@ function renderScatter(rows){
   const x = rows.map(r=>r.kW);
   const y = rows.map(r=>r.PF);
   Plotly.newPlot("pfScatter", [{x,y,mode:"markers",name:"PF vs kW"}],
-    {margin:{l:40,r:10,t:10,b:40}, xaxis:{title:"kW"}, yaxis:{title:"PF", range:[0,1.5]}}, /* <-- 1.5 here too */
+    {margin:{l:40,r:10,t:10,b:40}, xaxis:{title:"kW"}, yaxis:{title:"PF", range:[0,1.5]}},  /* upper 1.5 */
     {displaylogo:false,responsive:true});
 }
 
@@ -406,18 +412,20 @@ async function generate(){
   }
 }
 
-/* Export to PDF */
+/* Export to PDF – ignore filter bar & avoid splitting .no-split blocks */
 function exportPDF(){
   const node = document.getElementById('reportRoot');
   const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
   const opt = {
-    margin:       [10,10,10,10],         // mm
+    margin:       [10,10,10,10],
     filename:     `Low_PF_Report_${dateStr}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: -window.scrollY },
+    pagebreak:    { mode: ['css','legacy'], avoid: ['.no-split'] },
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
-  html2pdf().set(opt).from(node).save();
+  // give plots a moment to finish resize/render before capture
+  setTimeout(()=> html2pdf().set(opt).from(node).save(), 200);
 }
 
 // Auto-run if token present
