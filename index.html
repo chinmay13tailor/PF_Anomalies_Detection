@@ -5,18 +5,18 @@
   <title>Low Power Factor Analysis Report</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- html2canvas + jsPDF bundle -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *{box-sizing:border-box}
     body{font-family:'Segoe UI',sans-serif;background:#f5f7fa;margin:0;color:#333}
     .page{padding:2rem}
 
-    /* Header */
     .header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:1rem}
     .company{font-weight:700;font-size:1.1rem}
     .meta{color:#555}
 
-    /* Controls (outside the print area so not exported) */
+    /* Controls (stays OUTSIDE of print area) */
     .filter-row{width:95%;margin:1rem auto;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;background:#fff;padding:1rem;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.08)}
     label{font-weight:600;display:block;margin:0 0 .35rem}
     input,button{padding:.55rem .8rem;font-size:1rem;border:1px solid #d0d7de;border-radius:6px;background:#fff}
@@ -24,7 +24,6 @@
     button.primary:hover{background:#0e4fb1}
     .status{margin-left:.5rem;color:#6a737d}
 
-    /* KPIs */
     .summary-row{width:95%;margin:1rem auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
     .kpi{background:#fff;border-radius:10px;padding:1rem 1.25rem;box-shadow:0 4px 10px rgba(0,0,0,.08)}
     .kpi .title{color:#666;font-size:.9rem}
@@ -32,21 +31,17 @@
     .kpi .sub{color:#666;margin-top:.25rem}
     .kpi.danger{background:#ffe0dd}
 
-    /* Panels */
     .panel{width:95%;margin:1rem auto;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:1rem}
     .panel h3{margin:.2rem 0 1rem}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 
-    /* Table */
     .table-wrap{overflow:auto}
     table{width:100%;border-collapse:collapse;background:#fff;table-layout:fixed}
     th,td{padding:.8rem 1rem;border-bottom:1px solid #eee;text-align:center;white-space:normal}
     thead th{background:#ffd700;color:#222}
     tbody tr:nth-child(even){background:#fafafa}
-    /* Don’t split rows across pages in PDF */
-    table, thead, tbody, tr, td, th { break-inside: avoid; page-break-inside: avoid; }
 
-    /* Keep whole sections together when possible */
+    /* Keep whole sections together visually */
     .no-split{break-inside:avoid;page-break-inside:avoid;}
 
     /* Footer */
@@ -64,25 +59,24 @@
     .sign .block{display:flex;flex-direction:column}
     .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:12px}
 
-    /* ---------- PDF LAYOUT MODE (landscape) ---------- */
-    /* We toggle body.pdf before export for landscape fitting */
-    body.pdf #printArea,
-    body.pdf #printArea .header,
-    body.pdf #printArea .summary-row,
-    body.pdf #printArea .panel,
-    body.pdf #printArea .footer{
-      width:277mm;              /* 297mm - 20mm margins */
-      margin-left:auto;
-      margin-right:auto;
-    }
-    /* Keep two columns (dashboard-like) in landscape PDF */
-    body.pdf #printArea .grid2{ grid-template-columns:1fr 1fr; }
-
     @media (max-width:980px){
       .summary-row{grid-template-columns:1fr 1fr}
       .grid2{grid-template-columns:1fr}
       .footer{grid-template-columns:1fr}
     }
+
+    /* ---------- PDF LAYOUT MODE (A4 landscape fit) ---------- */
+    body.pdf #printArea,
+    body.pdf #printArea .header,
+    body.pdf #printArea .summary-row,
+    body.pdf #printArea .panel,
+    body.pdf #printArea .footer{
+      width:277mm;                     /* 297mm - 20mm margins */
+      margin-left:auto;
+      margin-right:auto;
+      background:#fff;
+    }
+    body.pdf #printArea .grid2{ grid-template-columns:1fr 1fr; } /* keep two columns */
   </style>
 </head>
 <body>
@@ -102,9 +96,8 @@
     </div>
   </div>
 
-  <!-- Everything below is exported -->
+  <!-- Everything below gets exported -->
   <div id="printArea">
-    <!-- Header -->
     <div class="header no-split">
       <div>
         <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
@@ -118,7 +111,6 @@
       </div>
     </div>
 
-    <!-- KPI row -->
     <div class="summary-row no-split">
       <div class="kpi"><div class="title">Avg PF (window)</div><div class="value" id="kpiAvgPF">—</div></div>
       <div class="kpi"><div class="title">Min PF</div><div class="value" id="kpiMinPF">—</div><div class="sub" id="kpiMinPFTs">—</div></div>
@@ -126,13 +118,11 @@
       <div class="kpi danger"><div class="title">Estimated penalty (₹)</div><div class="value" id="kpiPenalty">—</div></div>
     </div>
 
-    <!-- PF Trend -->
     <div class="panel no-split">
       <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
       <div id="pfTrend" style="height:380px;"></div>
     </div>
 
-    <!-- Energy + Scatter (two columns in PDF too) -->
     <div class="grid2">
       <div class="panel no-split">
         <h3>Hourly kWh vs kVArh</h3>
@@ -144,8 +134,7 @@
       </div>
     </div>
 
-    <!-- Events -->
-    <div class="panel">
+    <div class="panel no-split">
       <h3>Events Table (PF &lt; 0.90)</h3>
       <div class="table-wrap">
         <table>
@@ -160,7 +149,6 @@
       </div>
     </div>
 
-    <!-- Footer -->
     <div class="footer no-split">
       <div class="remarks">
         <div><b>Remarks</b></div>
@@ -219,7 +207,7 @@ function fmtTs(t){ return new Date(t).toLocaleString(); }
 function isF(v){ return Number.isFinite(v); }
 function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 
-/* FETCH — agg=NONE */
+/* FETCH like your reference (agg=NONE) */
 async function fetchTS(deviceId, keysCsv, startTs, endTs){
   const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
               `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
@@ -390,7 +378,7 @@ function renderEvents(events){
   });
 }
 
-/* Main Generate */
+/* Generate */
 async function generate(){
   const dateStr = document.getElementById("dateInput").value;
   if (!JWT){ alert("Missing token in URL (?token=)"); return; }
@@ -439,7 +427,7 @@ async function generate(){
   }
 }
 
-/* Resize every Plotly chart (used before/after PDF export) */
+/* Resize Plotly charts (before capture) */
 function resizePlots(){
   ['pfTrend','energyBars','pfScatter'].forEach(id=>{
     const el=document.getElementById(id);
@@ -447,31 +435,52 @@ function resizePlots(){
   });
 }
 
-/* Export to PDF — LANDSCAPE */
+/* ------ EXPORT: Single-image A4 landscape (no cuts, dashboard look) ------ */
 async function exportPDF(){
   const node = document.getElementById('printArea');
   const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
 
-  // Switch to PDF layout (A4 landscape width), then resize plots
+  // Switch to PDF layout (A4 landscape width), then resize plots to that width
   document.body.classList.add('pdf');
-  await new Promise(r=>setTimeout(r, 100));
+  await new Promise(r=>setTimeout(r, 120));
   resizePlots();
   await new Promise(r=>setTimeout(r, 200));
 
-  const opt = {
-    margin:       [10,10,10,10],        // mm
-    filename:     `Low_PF_Report_${dateStr}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
-    pagebreak:    { mode: ['css','legacy'], avoid: ['.no-split'] },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }  // <-- landscape
-  };
+  // Build hi-res canvas of the whole report area
+  const canvas = await html2canvas(node, {
+    backgroundColor: '#ffffff',
+    scale: 2,               // hi-res
+    useCORS: true,
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: node.scrollWidth,
+    windowHeight: node.scrollHeight
+  });
+  const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
-  await html2pdf().set(opt).from(node).save();
+  // Create landscape A4 and fit the image into one page
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const margin = 10;
 
-  // Revert to screen layout and resize plots back
+  const imgProps = pdf.getImageProperties(imgData);
+  let pdfW = pageW - margin*2;
+  let pdfH = (imgProps.height * pdfW) / imgProps.width;
+  if (pdfH > pageH - margin*2) {
+    pdfH = pageH - margin*2;
+    pdfW = (imgProps.width * pdfH) / imgProps.height;
+  }
+  const x = (pageW - pdfW)/2;
+  const y = (pageH - pdfH)/2;
+
+  pdf.addImage(imgData, 'JPEG', x, y, pdfW, pdfH, undefined, 'FAST');
+  pdf.save(`Low_PF_Report_${dateStr}.pdf`);
+
+  // Revert layout and let charts snap back
   document.body.classList.remove('pdf');
-  await new Promise(r=>setTimeout(r, 100));
+  await new Promise(r=>setTimeout(r, 80));
   resizePlots();
 }
 
