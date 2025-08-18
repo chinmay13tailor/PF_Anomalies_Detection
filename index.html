@@ -5,10 +5,10 @@
   <title>Low Power Factor Analysis Report</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Plotly (pin a modern version to avoid 'latest' warning) -->
+  <!-- Plotly (pinned) -->
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 
-  <!-- PDF deps (explicit, so window.jspdf/jsPDF is always defined) -->
+  <!-- PDF deps (explicit) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
@@ -60,9 +60,9 @@
       width:100%; min-height:130px; resize:vertical;
       border:1px solid #d0d7de; border-radius:8px; padding:.6rem; background:#fff;
     }
-    .sign{display:flex;flex-direction:column;gap:28px}
+    .sign{display:flex;flex-direction:column;gap:22px}
     .sign .block{display:flex;flex-direction:column}
-    .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:12px}
+    .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:10px}
 
     @media (max-width:980px){
       .summary-row{grid-template-columns:1fr 1fr}
@@ -70,18 +70,20 @@
       .footer{grid-template-columns:1fr}
     }
 
-    /* -------- PDF MODE (A4 landscape) -------- */
-    /* We export only .pdf-page blocks, each becomes one PDF page */
+    /* -------- PDF MODE (A4 landscape, tighter) -------- */
+    /* Each .pdf-page is one PDF page */
     body.pdf .pdf-page{
-      width:277mm;                /* 297 - 20mm margins */
+      width:285mm;                 /* slightly wider for sharper capture */
       background:#fff;
       margin-left:auto; margin-right:auto;
-      padding:6mm 8mm;
+      padding:4mm 6mm;             /* tighter inner padding */
     }
-    body.pdf .pdf-page .summary-row,
-    body.pdf .pdf-page .panel,
-    body.pdf .pdf-page .footer{ width:100%; margin-left:auto; margin-right:auto; }
-    body.pdf .pdf-page .grid2{ grid-template-columns:1fr 1fr; } /* keep two columns for page 2 */
+    /* Tighten panel spacing only in PDF */
+    body.pdf .panel{ padding:10px 12px; margin:10px auto; width:98%; }
+    body.pdf .summary-row{ width:98%; gap:.7rem; }
+    body.pdf .footer{ width:98%; gap:.7rem; }
+    /* IMPORTANT: Stack the two charts vertically on Page 2 in PDF */
+    body.pdf #pdfPage2 .grid2{ grid-template-columns:1fr; gap:.8rem; }
   </style>
 </head>
 <body>
@@ -127,20 +129,20 @@
 
       <div class="panel">
         <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
-        <div id="pfTrend" style="height:380px;"></div>
+        <div id="pfTrend" style="height:360px;"></div>
       </div>
     </section>
 
-    <!-- PAGE 2 (two charts side-by-side) -->
+    <!-- PAGE 2 (VERTICAL charts) -->
     <section class="pdf-page" id="pdfPage2">
       <div class="grid2">
         <div class="panel">
           <h3>Hourly kWh vs kVArh</h3>
-          <div id="energyBars" style="height:360px;"></div>
+          <div id="energyBars" style="height:340px;"></div>
         </div>
         <div class="panel">
           <h3>PF vs kW</h3>
-          <div id="pfScatter" style="height:360px;"></div>
+          <div id="pfScatter" style="height:340px;"></div>
         </div>
       </div>
     </section>
@@ -221,7 +223,7 @@ function fmtTs(t){ return new Date(t).toLocaleString(); }
 function isF(v){ return Number.isFinite(v); }
 function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 
-/* FETCH — agg=NONE (ThingsBoard pattern) */
+/* FETCH — agg=NONE */
 async function fetchTS(deviceId, keysCsv, startTs, endTs){
   const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
               `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
@@ -449,22 +451,21 @@ function resizePlots(){
   });
 }
 
-/* -------- EXPORT: 3 explicit PDF pages (landscape) -------- */
+/* -------- EXPORT: 3 explicit PDF pages (landscape, tighter margins) -------- */
 async function exportPDF(){
-  // jsPDF ctor across versions (v2 UMD -> window.jspdf.jsPDF, older -> window.jsPDF)
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
   if (!jsPDFCtor){ alert('jsPDF failed to load. Check CDN connectivity.'); return; }
 
   const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
 
-  // Switch to PDF layout width & lock 2-column grid on page 2
+  // Switch to PDF layout width & (for page 2) stack charts vertically
   document.body.classList.add('pdf');
   await new Promise(r=>setTimeout(r,120));
   resizePlots();
-  await new Promise(r=>setTimeout(r,200));
+  await new Promise(r=>setTimeout(r,160));
 
   const pdf = new jsPDFCtor({ orientation:'landscape', unit:'mm', format:'a4' });
-  const margin = 10;
+  const margin = 6;  // tighter outer margin
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
 
@@ -485,13 +486,13 @@ async function exportPDF(){
   };
 
   await addPage(document.getElementById('pdfPage1'), true);
-  await addPage(document.getElementById('pdfPage2'));
+  await addPage(document.getElementById('pdfPage2')); // stacked vertically in PDF mode
   await addPage(document.getElementById('pdfPage3'));
 
   pdf.save(`Low_PF_Report_${dateStr}.pdf`);
 
   document.body.classList.remove('pdf');
-  await new Promise(r=>setTimeout(r,80));
+  await new Promise(r=>setTimeout(r,60));
   resizePlots();
 }
 
