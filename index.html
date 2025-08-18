@@ -42,7 +42,7 @@
     .panel{width:95%;margin:1rem auto;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:1rem}
     .panel h3{margin:.2rem 0 1rem}
 
-    /* PAGE-2: force vertical layout (one chart per line) */
+    /* PAGE-2: vertical layout (one chart per line) */
     .grid2{display:grid;grid-template-columns:1fr;gap:0.9rem}
 
     .table-wrap{overflow:auto}
@@ -69,7 +69,6 @@
     }
 
     /* -------- PDF MODE (A4 landscape, tight) -------- */
-    /* Each .pdf-page becomes one PDF page */
     body.pdf .pdf-page{
       width:294mm;               /* wide capture for clarity */
       background:#fff;
@@ -188,7 +187,6 @@ const CONFIG = {
     "Power_Factor","PrrMinConsumption","Apparent_Energy","Reactive_Energy"
   ]
 };
-/* =============== */
 
 const qs = new URLSearchParams(location.search);
 const JWT = qs.get("token") || "";
@@ -208,6 +206,12 @@ document.getElementById("generatedAt").textContent = new Date().toLocaleString()
 
 document.getElementById("btnGenerate").addEventListener("click", generate);
 document.getElementById("btnExport").addEventListener("click", exportPDF);
+
+/* Minimal error reporter to the status area */
+window.addEventListener('error', e=>{
+  const s=document.getElementById('status');
+  if(s) s.textContent = 'Error: ' + (e?.message || 'Script error');
+});
 
 function fmtTs(t){ return new Date(t).toLocaleString(); }
 function isF(v){ return Number.isFinite(v); }
@@ -319,7 +323,11 @@ function renderKPIs(rows, events){
 }
 
 function renderPFTrend(rows){
-  if (!rows.length){ document.getElementById("pfTrend").innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
+  const el = document.getElementById("pfTrend");
+  if (!rows.length){
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; 
+    return; 
+  }
   const t   = rows.map(r=>new Date(r.ts));
   const pf  = rows.map(r=>r.PF);
   const kw  = rows.map(r=>r.kW);
@@ -335,7 +343,9 @@ function renderPFTrend(rows){
     yaxis2:{title:"kW / kVAr", overlaying:"y", side:"right"},
     shapes:[
       {type:"line", x0:t[0], x1:t.at(-1), y0:0.95, y1:0.95, line:{dash:"dot", color:"#f1c40f"}},
-      {type:"line", x0:t[0], x1:t.at(-1), y0:0.90, y1:0.90, line:{dash:"dot", color:"#e74c3c"}]
+      {type:"line", x0:t[0], x1:t.at(-1), y0:0.90, y1:0.90, line:{dash:"dot", color:"#e74c3c"}}
+    ],
+    legend:{orientation:"h"}
   }, {displaylogo:false,responsive:true});
 }
 
@@ -442,7 +452,7 @@ async function exportPDF(){
   await new Promise(r=>setTimeout(r,140));
 
   const pdf = new jsPDFCtor({ orientation:'landscape', unit:'mm', format:'a4' });
-  const margin = 0;  // minimal outer margin
+  const margin = 0;
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
 
@@ -473,6 +483,7 @@ async function exportPDF(){
   resizePlots();
 }
 
+/* Auto-run if token present */
 window.addEventListener("load", ()=>{ if (JWT){ generate(); } });
 </script>
 </body>
