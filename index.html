@@ -4,11 +4,15 @@
   <meta charset="UTF-8" />
   <title>Low Power Factor Analysis Report</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
-  <!-- Explicitly load jsPDF + html2canvas (avoid window.jspdf undefined) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- Plotly (pin a modern version to avoid 'latest' warning) -->
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+  <!-- PDF deps (explicit, so window.jspdf/jsPDF is always defined) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <style>
     *{box-sizing:border-box}
@@ -67,8 +71,9 @@
     }
 
     /* -------- PDF MODE (A4 landscape) -------- */
+    /* We export only .pdf-page blocks, each becomes one PDF page */
     body.pdf .pdf-page{
-      width:277mm;                /* 297 - 20mm margin */
+      width:277mm;                /* 297 - 20mm margins */
       background:#fff;
       margin-left:auto; margin-right:auto;
       padding:6mm 8mm;
@@ -76,7 +81,7 @@
     body.pdf .pdf-page .summary-row,
     body.pdf .pdf-page .panel,
     body.pdf .pdf-page .footer{ width:100%; margin-left:auto; margin-right:auto; }
-    body.pdf .pdf-page .grid2{ grid-template-columns:1fr 1fr; } /* keep two columns on page 2 */
+    body.pdf .pdf-page .grid2{ grid-template-columns:1fr 1fr; } /* keep two columns for page 2 */
   </style>
 </head>
 <body>
@@ -216,7 +221,7 @@ function fmtTs(t){ return new Date(t).toLocaleString(); }
 function isF(v){ return Number.isFinite(v); }
 function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 
-/* FETCH — agg=NONE */
+/* FETCH — agg=NONE (ThingsBoard pattern) */
 async function fetchTS(deviceId, keysCsv, startTs, endTs){
   const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
               `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
@@ -440,13 +445,13 @@ async function generate(){
 function resizePlots(){
   ['pfTrend','energyBars','pfScatter'].forEach(id=>{
     const el=document.getElementById(id);
-    if (el && el.data){ try{ Plotly.Plots.resize(el); }catch(e){} }
+    try{ Plotly.Plots.resize(el); }catch(e){}
   });
 }
 
 /* -------- EXPORT: 3 explicit PDF pages (landscape) -------- */
 async function exportPDF(){
-  // jsPDF constructor across versions (v2 => window.jspdf.jsPDF, v1 => window.jsPDF)
+  // jsPDF ctor across versions (v2 UMD -> window.jspdf.jsPDF, older -> window.jsPDF)
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
   if (!jsPDFCtor){ alert('jsPDF failed to load. Check CDN connectivity.'); return; }
 
@@ -463,7 +468,7 @@ async function exportPDF(){
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
 
-  const fitAndAdd = async (node, isFirst=false) => {
+  const addPage = async (node, first=false) => {
     const canvas = await html2canvas(node, {
       backgroundColor:'#ffffff',
       scale:2, useCORS:true, scrollX:0, scrollY:0,
@@ -475,17 +480,13 @@ async function exportPDF(){
     let h = (props.height * w) / props.width;
     if (h > pageH - margin*2){ h = pageH - margin*2; w = (props.width * h) / props.height; }
     const x = (pageW - w)/2, y = (pageH - h)/2;
-    if (!isFirst) pdf.addPage('a4','landscape');
+    if (!first) pdf.addPage('a4','landscape');
     pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
   };
 
-  const pages = [document.getElementById('pdfPage1'),
-                 document.getElementById('pdfPage2'),
-                 document.getElementById('pdfPage3')];
-
-  await fitAndAdd(pages[0], true);
-  await fitAndAdd(pages[1], false);
-  await fitAndAdd(pages[2], false);
+  await addPage(document.getElementById('pdfPage1'), true);
+  await addPage(document.getElementById('pdfPage2'));
+  await addPage(document.getElementById('pdfPage3'));
 
   pdf.save(`Low_PF_Report_${dateStr}.pdf`);
 
@@ -494,8 +495,11 @@ async function exportPDF(){
   resizePlots();
 }
 
+document.getElementById("btnGenerate").addEventListener("click", generate);
+document.getElementById("btnExport").addEventListener("click", exportPDF);
+
 // Auto-run if token present
-window.addEventListener("load", ()=>{ const token = new URLSearchParams(location.search).get('token'); if (token){ generate(); } });
+window.addEventListener("load", ()=>{ if (JWT){ generate(); } });
 </script>
 </body>
 </html>
