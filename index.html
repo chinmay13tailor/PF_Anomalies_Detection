@@ -16,7 +16,7 @@
     .company{font-weight:700;font-size:1.1rem}
     .meta{color:#555}
 
-    /* Controls (excluded from PDF by exporting #printArea only) */
+    /* Controls (outside the print area so not exported) */
     .filter-row{width:95%;margin:1rem auto;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;background:#fff;padding:1rem;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.08)}
     label{font-weight:600;display:block;margin:0 0 .35rem}
     input,button{padding:.55rem .8rem;font-size:1rem;border:1px solid #d0d7de;border-radius:6px;background:#fff}
@@ -43,10 +43,11 @@
     th,td{padding:.8rem 1rem;border-bottom:1px solid #eee;text-align:center;white-space:normal}
     thead th{background:#ffd700;color:#222}
     tbody tr:nth-child(even){background:#fafafa}
+    /* Don’t split rows across pages in PDF */
+    table, thead, tbody, tr, td, th { break-inside: avoid; page-break-inside: avoid; }
 
-    /* Keep whole sections on one PDF page where possible */
+    /* Keep whole sections together when possible */
     .no-split{break-inside:avoid;page-break-inside:avoid;}
-    .page-break{break-before:page;page-break-before:always;}
 
     /* Footer */
     .footer{
@@ -63,18 +64,20 @@
     .sign .block{display:flex;flex-direction:column}
     .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:12px}
 
-    /* ---------- PDF LAYOUT MODE ---------- */
-    /* We toggle body.pdf before export to ensure A4-friendly width and stacking */
+    /* ---------- PDF LAYOUT MODE (landscape) ---------- */
+    /* We toggle body.pdf before export for landscape fitting */
     body.pdf #printArea,
     body.pdf #printArea .header,
     body.pdf #printArea .summary-row,
     body.pdf #printArea .panel,
     body.pdf #printArea .footer{
-      width:180mm;               /* ~A4 inner width */
+      width:277mm;              /* 297mm - 20mm margins */
       margin-left:auto;
       margin-right:auto;
     }
-    body.pdf #printArea .grid2{ grid-template-columns:1fr; } /* stack charts vertically for PDF */
+    /* Keep two columns (dashboard-like) in landscape PDF */
+    body.pdf #printArea .grid2{ grid-template-columns:1fr 1fr; }
+
     @media (max-width:980px){
       .summary-row{grid-template-columns:1fr 1fr}
       .grid2{grid-template-columns:1fr}
@@ -84,7 +87,7 @@
 </head>
 <body>
 <div class="page" id="pageRoot">
-  <!-- Controls (NOT included in #printArea, so excluded from PDF) -->
+  <!-- Controls (NOT exported) -->
   <div class="filter-row">
     <div>
       <label for="dateInput">Select Date</label>
@@ -129,7 +132,7 @@
       <div id="pfTrend" style="height:380px;"></div>
     </div>
 
-    <!-- Energy + Scatter -->
+    <!-- Energy + Scatter (two columns in PDF too) -->
     <div class="grid2">
       <div class="panel no-split">
         <h3>Hourly kWh vs kVArh</h3>
@@ -141,8 +144,8 @@
       </div>
     </div>
 
-    <!-- Events (start on a fresh page in PDF to avoid cuts) -->
-    <div class="panel no-split page-break">
+    <!-- Events -->
+    <div class="panel">
       <h3>Events Table (PF &lt; 0.90)</h3>
       <div class="table-wrap">
         <table>
@@ -216,7 +219,7 @@ function fmtTs(t){ return new Date(t).toLocaleString(); }
 function isF(v){ return Number.isFinite(v); }
 function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 
-/* FETCH — same style as your reference (agg=NONE) */
+/* FETCH — agg=NONE */
 async function fetchTS(deviceId, keysCsv, startTs, endTs){
   const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
               `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
@@ -342,7 +345,7 @@ function renderPFTrend(rows){
     {x:t, y:kw,   name:"Active Power (kW)",    mode:"lines", yaxis:"y2"}
   ], {
     margin:{l:50,r:60,t:10,b:30},
-    yaxis:{title:"PF", range:[0,1.5]},     /* upper limit 1.5 */
+    yaxis:{title:"PF", range:[0,1.5]},
     yaxis2:{title:"kW / kVAr", overlaying:"y", side:"right"},
     shapes:[
       {type:"line", x0:t[0], x1:t.at(-1), y0:0.95, y1:0.95, line:{dash:"dot", color:"#f1c40f"}},
@@ -436,7 +439,7 @@ async function generate(){
   }
 }
 
-/* Resize every Plotly chart (used before PDF export and after) */
+/* Resize every Plotly chart (used before/after PDF export) */
 function resizePlots(){
   ['pfTrend','energyBars','pfScatter'].forEach(id=>{
     const el=document.getElementById(id);
@@ -444,24 +447,24 @@ function resizePlots(){
   });
 }
 
-/* Export to PDF – export ONLY #printArea; use PDF layout mode for A4 fit */
+/* Export to PDF — LANDSCAPE */
 async function exportPDF(){
   const node = document.getElementById('printArea');
   const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
 
-  // Switch to PDF layout (A4 width, stacked charts), then resize plots
+  // Switch to PDF layout (A4 landscape width), then resize plots
   document.body.classList.add('pdf');
-  await new Promise(r=>setTimeout(r, 100));  // allow CSS to apply
+  await new Promise(r=>setTimeout(r, 100));
   resizePlots();
-  await new Promise(r=>setTimeout(r, 200));  // allow Plotly to finish resizing
+  await new Promise(r=>setTimeout(r, 200));
 
   const opt = {
-    margin:       [10,10,10,10],
+    margin:       [10,10,10,10],        // mm
     filename:     `Low_PF_Report_${dateStr}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
     pagebreak:    { mode: ['css','legacy'], avoid: ['.no-split'] },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }  // <-- landscape
   };
 
   await html2pdf().set(opt).from(node).save();
