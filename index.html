@@ -5,24 +5,24 @@
   <title>Low Power Factor Analysis Report</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <!-- html2canvas + jsPDF bundle -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *{box-sizing:border-box}
     body{font-family:'Segoe UI',sans-serif;background:#f5f7fa;margin:0;color:#333}
     .page{padding:2rem}
 
-    .header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:1rem}
-    .company{font-weight:700;font-size:1.1rem}
-    .meta{color:#555}
-
-    /* Controls (stays OUTSIDE of print area) */
+    /* Controls (not exported) */
     .filter-row{width:95%;margin:1rem auto;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;background:#fff;padding:1rem;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.08)}
     label{font-weight:600;display:block;margin:0 0 .35rem}
     input,button{padding:.55rem .8rem;font-size:1rem;border:1px solid #d0d7de;border-radius:6px;background:#fff}
     button.primary{background:#1363df;color:#fff;border:0;font-weight:700;cursor:pointer}
     button.primary:hover{background:#0e4fb1}
     .status{margin-left:.5rem;color:#6a737d}
+
+    /* Common blocks */
+    .header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:1rem}
+    .company{font-weight:700;font-size:1.1rem}
+    .meta{color:#555}
 
     .summary-row{width:95%;margin:1rem auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
     .kpi{background:#fff;border-radius:10px;padding:1rem 1.25rem;box-shadow:0 4px 10px rgba(0,0,0,.08)}
@@ -33,6 +33,7 @@
 
     .panel{width:95%;margin:1rem auto;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:1rem}
     .panel h3{margin:.2rem 0 1rem}
+
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 
     .table-wrap{overflow:auto}
@@ -41,10 +42,6 @@
     thead th{background:#ffd700;color:#222}
     tbody tr:nth-child(even){background:#fafafa}
 
-    /* Keep whole sections together visually */
-    .no-split{break-inside:avoid;page-break-inside:avoid;}
-
-    /* Footer */
     .footer{
       width:95%; margin:1rem auto 0; display:grid;
       grid-template-columns:minmax(0,2fr) minmax(260px,1fr);
@@ -65,23 +62,23 @@
       .footer{grid-template-columns:1fr}
     }
 
-    /* ---------- PDF LAYOUT MODE (A4 landscape fit) ---------- */
-    body.pdf #printArea,
-    body.pdf #printArea .header,
-    body.pdf #printArea .summary-row,
-    body.pdf #printArea .panel,
-    body.pdf #printArea .footer{
-      width:277mm;                     /* 297mm - 20mm margins */
-      margin-left:auto;
-      margin-right:auto;
+    /* -------- PDF MODE (A4 landscape) -------- */
+    /* We export only .pdf-page blocks, each becomes one PDF page */
+    body.pdf .pdf-page{
+      width:277mm;                /* 297 - 20mm margin */
       background:#fff;
+      margin-left:auto; margin-right:auto;
+      padding:6mm 8mm;           /* inner breathing space */
     }
-    body.pdf #printArea .grid2{ grid-template-columns:1fr 1fr; } /* keep two columns */
+    body.pdf .pdf-page .summary-row,
+    body.pdf .pdf-page .panel,
+    body.pdf .pdf-page .footer{ width:100%; margin-left:auto; margin-right:auto; }
+    body.pdf .pdf-page .grid2{ grid-template-columns:1fr 1fr; } /* lock 2 columns for page 2 */
   </style>
 </head>
 <body>
 <div class="page" id="pageRoot">
-  <!-- Controls (NOT exported) -->
+  <!-- Controls (not exported) -->
   <div class="filter-row">
     <div>
       <label for="dateInput">Select Date</label>
@@ -96,69 +93,78 @@
     </div>
   </div>
 
-  <!-- Everything below gets exported -->
+  <!-- Printable area split into explicit pages -->
   <div id="printArea">
-    <div class="header no-split">
-      <div>
-        <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
-        <div id="companyAddress">Ahmedabad, India</div>
+    <!-- PAGE 1 -->
+    <section class="pdf-page" id="pdfPage1">
+      <div class="header">
+        <div>
+          <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
+          <div id="companyAddress">Ahmedabad, India</div>
+        </div>
+        <div class="meta">
+          <div><b>Report:</b> Low Power Factor Analysis Report</div>
+          <div><b>Report Date:</b> <span id="reportDateLabel">—</span></div>
+          <div><b>Generated:</b> <span id="generatedAt">—</span></div>
+          <div><b>Device:</b> <span id="deviceShown">—</span></div>
+        </div>
       </div>
-      <div class="meta">
-        <div><b>Report:</b> Low Power Factor Analysis Report</div>
-        <div><b>Report Date:</b> <span id="reportDateLabel">—</span></div>
-        <div><b>Generated:</b> <span id="generatedAt">—</span></div>
-        <div><b>Device:</b> <span id="deviceShown">—</span></div>
-      </div>
-    </div>
 
-    <div class="summary-row no-split">
-      <div class="kpi"><div class="title">Avg PF (window)</div><div class="value" id="kpiAvgPF">—</div></div>
-      <div class="kpi"><div class="title">Min PF</div><div class="value" id="kpiMinPF">—</div><div class="sub" id="kpiMinPFTs">—</div></div>
-      <div class="kpi"><div class="title">Duration PF &lt; 0.90</div><div class="value" id="kpiDurationLowPF">—</div></div>
-      <div class="kpi danger"><div class="title">Estimated penalty (₹)</div><div class="value" id="kpiPenalty">—</div></div>
-    </div>
+      <div class="summary-row">
+        <div class="kpi"><div class="title">Avg PF (window)</div><div class="value" id="kpiAvgPF">—</div></div>
+        <div class="kpi"><div class="title">Min PF</div><div class="value" id="kpiMinPF">—</div><div class="sub" id="kpiMinPFTs">—</div></div>
+        <div class="kpi"><div class="title">Duration PF &lt; 0.90</div><div class="value" id="kpiDurationLowPF">—</div></div>
+        <div class="kpi danger"><div class="title">Estimated penalty (₹)</div><div class="value" id="kpiPenalty">—</div></div>
+      </div>
 
-    <div class="panel no-split">
-      <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
-      <div id="pfTrend" style="height:380px;"></div>
-    </div>
+      <div class="panel">
+        <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
+        <div id="pfTrend" style="height:380px;"></div>
+      </div>
+    </section>
 
-    <div class="grid2">
-      <div class="panel no-split">
-        <h3>Hourly kWh vs kVArh</h3>
-        <div id="energyBars" style="height:360px;"></div>
+    <!-- PAGE 2 (the two charts MUST be in one row) -->
+    <section class="pdf-page" id="pdfPage2">
+      <div class="grid2">
+        <div class="panel">
+          <h3>Hourly kWh vs kVArh</h3>
+          <div id="energyBars" style="height:360px;"></div>
+        </div>
+        <div class="panel">
+          <h3>PF vs kW</h3>
+          <div id="pfScatter" style="height:360px;"></div>
+        </div>
       </div>
-      <div class="panel no-split">
-        <h3>PF vs kW</h3>
-        <div id="pfScatter" style="height:360px;"></div>
-      </div>
-    </div>
+    </section>
 
-    <div class="panel no-split">
-      <h3>Events Table (PF &lt; 0.90)</h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Start</th><th>End</th><th>Min PF</th>
-              <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th>
-            </tr>
-          </thead>
-          <tbody id="eventsBody"><tr><td colspan="7">Click Generate</td></tr></tbody>
-        </table>
+    <!-- PAGE 3 -->
+    <section class="pdf-page" id="pdfPage3">
+      <div class="panel">
+        <h3>Events Table (PF &lt; 0.90)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Start</th><th>End</th><th>Min PF</th>
+                <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th>
+              </tr>
+            </thead>
+            <tbody id="eventsBody"><tr><td colspan="7">Click Generate</td></tr></tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
-    <div class="footer no-split">
-      <div class="remarks">
-        <div><b>Remarks</b></div>
-        <textarea placeholder="Engineer notes..."></textarea>
+      <div class="footer">
+        <div class="remarks">
+          <div><b>Remarks</b></div>
+          <textarea placeholder="Engineer notes..."></textarea>
+        </div>
+        <div class="sign">
+          <div class="block"><div>Reviewed by</div><div class="line"></div></div>
+          <div class="block"><div>Checked by</div><div class="line"></div></div>
+        </div>
       </div>
-      <div class="sign">
-        <div class="block"><div>Reviewed by</div><div class="line"></div></div>
-        <div class="block"><div>Checked by</div><div class="line"></div></div>
-      </div>
-    </div>
+    </section>
   </div>
 </div>
 
@@ -207,7 +213,7 @@ function fmtTs(t){ return new Date(t).toLocaleString(); }
 function isF(v){ return Number.isFinite(v); }
 function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 
-/* FETCH like your reference (agg=NONE) */
+/* FETCH — agg=NONE */
 async function fetchTS(deviceId, keysCsv, startTs, endTs){
   const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
               `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
@@ -427,7 +433,7 @@ async function generate(){
   }
 }
 
-/* Resize Plotly charts (before capture) */
+/* Resize Plotly charts to current layout width */
 function resizePlots(){
   ['pfTrend','energyBars','pfScatter'].forEach(id=>{
     const el=document.getElementById(id);
@@ -435,57 +441,54 @@ function resizePlots(){
   });
 }
 
-/* ------ EXPORT: Single-image A4 landscape (no cuts, dashboard look) ------ */
+/* -------- EXPORT: 3 explicit PDF pages (landscape) -------- */
 async function exportPDF(){
-  const node = document.getElementById('printArea');
   const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
 
-  // Switch to PDF layout (A4 landscape width), then resize plots to that width
+  // Switch to PDF layout width & lock 2-column grid on page 2
   document.body.classList.add('pdf');
-  await new Promise(r=>setTimeout(r, 120));
+  await new Promise(r=>setTimeout(r,120));
   resizePlots();
-  await new Promise(r=>setTimeout(r, 200));
+  await new Promise(r=>setTimeout(r,200));
 
-  // Build hi-res canvas of the whole report area
-  const canvas = await html2canvas(node, {
-    backgroundColor: '#ffffff',
-    scale: 2,               // hi-res
-    useCORS: true,
-    scrollX: 0,
-    scrollY: 0,
-    windowWidth: node.scrollWidth,
-    windowHeight: node.scrollHeight
-  });
-  const imgData = canvas.toDataURL('image/jpeg', 0.98);
-
-  // Create landscape A4 and fit the image into one page
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const margin = 10;
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 10;
+  const fitAndAdd = async (node, isFirst=false) => {
+    const canvas = await html2canvas(node, {
+      backgroundColor:'#ffffff',
+      scale:2, useCORS:true, scrollX:0, scrollY:0,
+      windowWidth: node.scrollWidth, windowHeight: node.scrollHeight
+    });
+    const img = canvas.toDataURL('image/jpeg', 0.98);
+    const props = pdf.getImageProperties(img);
+    let w = pageW - margin*2;
+    let h = (props.height * w) / props.width;
+    if (h > pageH - margin*2){ h = pageH - margin*2; w = (props.width * h) / props.height; }
+    const x = (pageW - w)/2, y = (pageH - h)/2;
+    if (!isFirst) pdf.addPage('a4','landscape');
+    pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
+  };
 
-  const imgProps = pdf.getImageProperties(imgData);
-  let pdfW = pageW - margin*2;
-  let pdfH = (imgProps.height * pdfW) / imgProps.width;
-  if (pdfH > pageH - margin*2) {
-    pdfH = pageH - margin*2;
-    pdfW = (imgProps.width * pdfH) / imgProps.height;
-  }
-  const x = (pageW - pdfW)/2;
-  const y = (pageH - pdfH)/2;
+  const pages = [document.getElementById('pdfPage1'),
+                 document.getElementById('pdfPage2'),
+                 document.getElementById('pdfPage3')];
 
-  pdf.addImage(imgData, 'JPEG', x, y, pdfW, pdfH, undefined, 'FAST');
+  await fitAndAdd(pages[0], true);
+  await fitAndAdd(pages[1], false);   // <-- keeps Hourly kWh & PF vs kW side-by-side
+  await fitAndAdd(pages[2], false);
+
   pdf.save(`Low_PF_Report_${dateStr}.pdf`);
 
-  // Revert layout and let charts snap back
   document.body.classList.remove('pdf');
-  await new Promise(r=>setTimeout(r, 80));
+  await new Promise(r=>setTimeout(r,80));
   resizePlots();
 }
 
 // Auto-run if token present
-window.addEventListener("load", ()=>{ if (JWT){ generate(); } });
+window.addEventListener("load", ()=>{ const token = new URLSearchParams(location.search).get('token'); if (token){ generate(); } });
 </script>
 </body>
 </html>
