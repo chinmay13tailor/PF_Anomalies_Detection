@@ -5,7 +5,11 @@
   <title>Low Power Factor Analysis Report</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <!-- Explicitly load jsPDF + html2canvas (avoid window.jspdf undefined) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <style>
     *{box-sizing:border-box}
     body{font-family:'Segoe UI',sans-serif;background:#f5f7fa;margin:0;color:#333}
@@ -63,17 +67,16 @@
     }
 
     /* -------- PDF MODE (A4 landscape) -------- */
-    /* We export only .pdf-page blocks, each becomes one PDF page */
     body.pdf .pdf-page{
       width:277mm;                /* 297 - 20mm margin */
       background:#fff;
       margin-left:auto; margin-right:auto;
-      padding:6mm 8mm;           /* inner breathing space */
+      padding:6mm 8mm;
     }
     body.pdf .pdf-page .summary-row,
     body.pdf .pdf-page .panel,
     body.pdf .pdf-page .footer{ width:100%; margin-left:auto; margin-right:auto; }
-    body.pdf .pdf-page .grid2{ grid-template-columns:1fr 1fr; } /* lock 2 columns for page 2 */
+    body.pdf .pdf-page .grid2{ grid-template-columns:1fr 1fr; } /* keep two columns on page 2 */
   </style>
 </head>
 <body>
@@ -93,7 +96,7 @@
     </div>
   </div>
 
-  <!-- Printable area split into explicit pages -->
+  <!-- Printable area split into 3 explicit pages -->
   <div id="printArea">
     <!-- PAGE 1 -->
     <section class="pdf-page" id="pdfPage1">
@@ -123,7 +126,7 @@
       </div>
     </section>
 
-    <!-- PAGE 2 (the two charts MUST be in one row) -->
+    <!-- PAGE 2 (two charts side-by-side) -->
     <section class="pdf-page" id="pdfPage2">
       <div class="grid2">
         <div class="panel">
@@ -443,6 +446,10 @@ function resizePlots(){
 
 /* -------- EXPORT: 3 explicit PDF pages (landscape) -------- */
 async function exportPDF(){
+  // jsPDF constructor across versions (v2 => window.jspdf.jsPDF, v1 => window.jsPDF)
+  const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+  if (!jsPDFCtor){ alert('jsPDF failed to load. Check CDN connectivity.'); return; }
+
   const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
 
   // Switch to PDF layout width & lock 2-column grid on page 2
@@ -451,11 +458,11 @@ async function exportPDF(){
   resizePlots();
   await new Promise(r=>setTimeout(r,200));
 
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const pdf = new jsPDFCtor({ orientation:'landscape', unit:'mm', format:'a4' });
   const margin = 10;
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
+
   const fitAndAdd = async (node, isFirst=false) => {
     const canvas = await html2canvas(node, {
       backgroundColor:'#ffffff',
@@ -477,7 +484,7 @@ async function exportPDF(){
                  document.getElementById('pdfPage3')];
 
   await fitAndAdd(pages[0], true);
-  await fitAndAdd(pages[1], false);   // <-- keeps Hourly kWh & PF vs kW side-by-side
+  await fitAndAdd(pages[1], false);
   await fitAndAdd(pages[2], false);
 
   pdf.save(`Low_PF_Report_${dateStr}.pdf`);
