@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Low Power Factor Analysis Report</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body{font-family:'Segoe UI',sans-serif;background:#f5f7fa;margin:0;color:#333}
+    .page{padding:2rem}
+    .header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:1rem}
+    .company{font-weight:700;font-size:1.1rem}
+    .meta{color:#555}
+    .filter-row{width:95%;margin:1rem auto;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;background:#fff;padding:1rem;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.08)}
+    label{font-weight:600;display:block;margin:0 0 .35rem}
+    input,button{padding:.55rem .8rem;font-size:1rem;border:1px solid #d0d7de;border-radius:6px;background:#fff}
+    button{background:#1363df;color:#fff;border:0;font-weight:700;cursor:pointer}
+    button:hover{background:#0e4fb1}
+    .status{margin-left:.5rem;color:#6a737d}
+    .summary-row{width:95%;margin:1rem auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+    .kpi{background:#fff;border-radius:10px;padding:1rem 1.25rem;box-shadow:0 4px 10px rgba(0,0,0,.08)}
+    .kpi .title{color:#666;font-size:.9rem}
+    .kpi .value{font-size:2rem;font-weight:800}
+    .kpi .sub{color:#666;margin-top:.25rem}
+    .kpi.danger{background:#ffe0dd}
+    .panel{width:95%;margin:1rem auto;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:1rem}
+    .panel h3{margin:.2rem 0 1rem}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .table-wrap{overflow:auto}
+    table{width:100%;border-collapse:collapse;background:#fff}
+    th,td{padding:.8rem 1rem;border-bottom:1px solid #eee;text-align:center}
+    thead th{background:#ffd700;color:#222}
+    tbody tr:nth-child(even){background:#fafafa}
+    .footer{width:95%;margin:1rem auto 0;display:grid;grid-template-columns:2fr 1fr;gap:1rem}
+    .footer textarea{width:100%;min-height:90px;border:1px solid #d0d7de;border-radius:8px;padding:.6rem}
+    .sign .line{border-bottom:2px solid #333;height:28px;margin-top:24px}
+    @media (max-width:980px){.summary-row{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="page">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
+      <div id="companyAddress">Ahmedabad, India</div>
+    </div>
+    <div class="meta">
+      <div><b>Report:</b> Low Power Factor Analysis Report</div>
+      <div><b>Report Date:</b> <span id="reportDateLabel">—</span></div>
+      <div><b>Generated:</b> <span id="generatedAt">—</span></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="filter-row">
+    <div>
+      <label for="dateInput">Select Date</label>
+      <input type="date" id="dateInput"/>
+    </div>
+    <div>
+      <label for="deviceInput">Device ID</label>
+      <input type="text" id="deviceInput" placeholder="Device UUID"/>
+    </div>
+    <div>
+      <button id="btnGenerate">Generate</button>
+      <span class="status" id="status">Idle</span>
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="summary-row">
+    <div class="kpi">
+      <div class="title">Avg PF (window)</div>
+      <div class="value" id="kpiAvgPF">—</div>
+    </div>
+    <div class="kpi">
+      <div class="title">Min PF</div>
+      <div class="value" id="kpiMinPF">—</div>
+      <div class="sub" id="kpiMinPFTs">—</div>
+    </div>
+    <div class="kpi">
+      <div class="title">Duration PF &lt; 0.90</div>
+      <div class="value" id="kpiDurationLowPF">—</div>
+    </div>
+    <div class="kpi danger">
+      <div class="title">Estimated penalty (₹)</div>
+      <div class="value" id="kpiPenalty">—</div>
+    </div>
+  </div>
+
+  <!-- PF Trend -->
+  <div class="panel">
+    <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
+    <div id="pfTrend" style="height:380px;"></div>
+  </div>
+
+  <!-- Energy + Scatter -->
+  <div class="grid2">
+    <div class="panel">
+      <h3>Hourly kWh vs kVArh</h3>
+      <div id="energyBars" style="height:360px;"></div>
+    </div>
+    <div class="panel">
+      <h3>PF vs kW</h3>
+      <div id="pfScatter" style="height:360px;"></div>
+    </div>
+  </div>
+
+  <!-- Events -->
+  <div class="panel">
+    <h3>Events Table (PF &lt; 0.90)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Start</th><th>End</th><th>Min PF</th>
+            <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th><th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="eventsBody"><tr><td colspan="8">Click Generate</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>
+      <div><b>Remarks</b></div>
+      <textarea placeholder="Engineer notes..."></textarea>
+    </div>
+    <div class="sign">
+      <div>Reviewed by</div><div class="line"></div>
+      <div style="height:10px"></div>
+      <div>Checked by</div><div class="line"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== CONFIG ===== */
+const CONFIG = {
+  COMPANY_NAME: "Pima Controls Pvt Ltd",
+  COMPANY_ADDRESS: "Ahmedabad, India",
+  API_BASE_URL: "https://thingsboard.cloud/api",
+  PF_TARGET: 0.95,
+  LOW_PF_THRESHOLD: 0.90,
+  DEMAND_RATE_INR_PER_KVA: 350,
+  DEFAULT_DEVICE_ID: "a41ff8c0-ce7c-11ef-826c-29d63551db41",
+  // Your exact keys:
+  KEYS: [
+    "Active_Power",
+    "Apparent_Power",
+    "Reactive_Power",
+    "Power_Factor",
+    "PrrMinConsumption",
+    "Apparent_Energy",
+    "Reactive_Energy"
+  ]
+};
+/* =============== */
+
+const qs = new URLSearchParams(location.search);
+const JWT = qs.get("token") || "";
+const URL_DEVICE = qs.get("deviceId") || "";
+
+document.getElementById("companyName").textContent = CONFIG.COMPANY_NAME;
+document.getElementById("companyAddress").textContent = CONFIG.COMPANY_ADDRESS;
+
+const today = new Date();
+const pad = n => String(n).padStart(2,"0");
+const defDate = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+document.getElementById("dateInput").value = defDate;
+document.getElementById("reportDateLabel").textContent = defDate;
+document.getElementById("generatedAt").textContent = new Date().toLocaleString();
+document.getElementById("deviceInput").value = URL_DEVICE || CONFIG.DEFAULT_DEVICE_ID;
+
+document.getElementById("btnGenerate").addEventListener("click", generate);
+
+function fmtTs(t){ return new Date(t).toLocaleString(); }
+function isF(v){ return Number.isFinite(v); }
+function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
+
+/* FETCH — same style as your reference (agg=NONE) */
+async function fetchTS(deviceId, keysCsv, startTs, endTs){
+  const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
+              `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
+  const headers = JWT ? { "X-Authorization": `Bearer ${JWT}` } : {};
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+/* Merge TB response into aligned rows */
+function mergeSeries(obj){
+  const map = new Map();
+  Object.entries(obj).forEach(([key,arr])=>{
+    (arr||[]).forEach(p=>{
+      const t = +p.ts;
+      const row = map.get(t) || { ts: t };
+      row[key] = num(p.value);
+      map.set(t,row);
+    });
+  });
+  return Array.from(map.values()).sort((a,b)=>a.ts-b.ts);
+}
+
+/* Light smoothing for PF */
+function smoothPF(rows, n=5){
+  const q=[]; let sum=0;
+  for (let i=0;i<rows.length;i++){
+    const v = rows[i].PF;
+    if (isF(v)){ q.push(v); sum+=v; if(q.length>n){ sum-=q.shift(); } rows[i].PF = sum/q.length; }
+  }
+}
+
+/* Hourly aggregates:
+   - kWh = sum of PrrMinConsumption in the hour
+   - kVArh = (max - min) of Reactive_Energy (cumulative) in the hour
+*/
+function hourlyEnergyFromRows(rows){
+  const byHour = new Map();
+  rows.forEach(r=>{
+    const d = new Date(r.ts);
+    const bucket = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime();
+    const obj = byHour.get(bucket) || { ts: bucket, perMin: [], reactiveList: [] };
+    if (isF(r.PrrMinConsumption)) obj.perMin.push(r.PrrMinConsumption);
+    if (isF(r.Reactive_Energy)) obj.reactiveList.push(r.Reactive_Energy);
+    byHour.set(bucket, obj);
+  });
+  const out = Array.from(byHour.values()).map(h=>{
+    const kWh = h.perMin.reduce((s,x)=>s+x, 0);
+    let kVArh = 0;
+    if (h.reactiveList.length >= 2){
+      const maxv = Math.max(...h.reactiveList);
+      const minv = Math.min(...h.reactiveList);
+      kVArh = Math.max(0, maxv - minv);
+    }
+    return { ts: h.ts, kWh, kVArh };
+  }).sort((a,b)=>a.ts-b.ts);
+  return out;
+}
+
+/* Detect PF < threshold contig*
