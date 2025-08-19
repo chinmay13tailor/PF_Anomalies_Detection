@@ -1,533 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Low Power Factor Analysis Report</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Plotly (pinned) -->
-  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
-
-  <!-- PDF deps -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
-          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
-          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
+  <meta charset="UTF-8">
+  <title>Voltage Anomaly Report</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
-    *{box-sizing:border-box}
-    body{
-      font-family:'Segoe UI',sans-serif;
-      background:#EEEEEE;   /* background updated */
-      margin:0;
-      color:#333
-    }
-    .page{padding:2rem}
-
-    /* Section 1: Controls box */
-/* Controls box */
-.filter-row{
-  width:95%;
-  margin:1rem auto;
-  display:flex;
-  flex-wrap:wrap;
-  gap:1rem;
-  align-items:flex-end;
-  background:#fff;
-  padding:1rem;
-  border-radius:10px;
-  box-shadow:0 4px 10px rgba(0,0,0,.08);
-
-  position:sticky;   /* NEW */
-  top:0;             /* sticks to top */
-  z-index:1000;      /* stays above report content */
-}
-
-    label{font-weight:600;display:block;margin:0 0 .35rem}
-    input,button{padding:.55rem .8rem;font-size:1rem;border:1px solid #d0d7de;border-radius:6px;background:#fff}
-    button.primary{background:#1363df;color:#fff;border:0;font-weight:700;cursor:pointer}
-    button.primary:hover{background:#0e4fb1}
-    .status{margin-left:.5rem;color:#6a737d}
-
-    /* --- Header (hidden in screen, shown in PDF) --- */
-    .header{
-      display:none;
-      justify-content:space-between;flex-wrap:wrap;gap:1rem;
-      border-bottom:1px solid #e5e7eb;padding-bottom:1rem
-    }
-    .company{font-weight:700;font-size:1.1rem}
-    .meta{color:#555}
-
-    /* Section 2: Report area */
-    .report-box{
-      width:95%;margin:1rem auto;padding:1rem;
-      background:#fff;border-radius:10px;
-      box-shadow:0 4px 14px rgba(0,0,0,.08);
-    }
-
-    .summary-row{width:95%;margin:1rem auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
-    .kpi{background:#fff;border-radius:10px;padding:1rem 1.25rem;box-shadow:0 4px 10px rgba(0,0,0,.08)}
-    .kpi .title{color:#666;font-size:.9rem}
-    .kpi .value{font-size:2rem;font-weight:800}
-    .kpi .sub{color:#666;margin-top:.25rem}
-    .kpi.danger{background:#ffe0dd}
-
-    .panel{width:95%;margin:1rem auto;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:1rem}
-    .panel h3{margin:.2rem 0 1rem}
-
-    .grid2{display:grid;grid-template-columns:1fr;gap:0.9rem}
-
-    .table-wrap{overflow:auto}
-    table{width:100%;border-collapse:collapse;background:#fff;table-layout:fixed}
-    th,td{padding:.8rem 1rem;border-bottom:1px solid #eee;text-align:center;white-space:normal}
-    thead th{background:#ffd700;color:#222}
-    tbody tr:nth-child(even){background:#fafafa}
-
-    .footer{
-      width:95%; margin:1rem auto 0; display:grid;
-      grid-template-columns:minmax(0,2fr) minmax(260px,1fr);
-      gap:1rem; align-items:start;
-    }
-    .remarks textarea{
-      width:100%; min-height:130px; resize:vertical;
-      border:1px solid #d0d7de; border-radius:8px; padding:.6rem; background:#fff;
-    }
-    .sign{display:flex;flex-direction:column;gap:20px}
-    .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:10px}
-
-    @media (max-width:980px){
-      .summary-row{grid-template-columns:1fr 1fr}
-      .footer{grid-template-columns:1fr}
-    }
-
-    /* -------- PDF MODE -------- */
-    body.pdf .header{display:flex !important;} /* show header only in PDF */
-    body.pdf .pdf-page{
-      width:294mm;background:#fff;margin:0 auto;padding:2mm 3mm;
-    }
-    body.pdf .panel{ padding:8px 10px; margin:8px auto; width:99%; }
-    body.pdf .summary-row{ width:99%; gap:.6rem; }
-    body.pdf .footer{ width:99%; gap:.6rem; }
+    body { font-family: Arial, sans-serif; margin: 0; background: #EEEEEE; }
+    .date-select { background: #fff; padding: 15px; margin: 15px auto; width: 95%; display: flex; justify-content: space-between; align-items: center; border-radius: 6px; }
+    .btn { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-generate { background: #007BFF; color: white; }
+    .btn-export { background: #28a745; color: white; }
+    .container { width: 95%; margin: auto; padding: 15px; background: #fff; border-radius: 8px; }
+    h1 { text-align: center; margin: 10px; display:none; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+    .card { background: #fafafa; padding: 15px; text-align: center; border-radius: 6px; font-weight: bold; }
+    .charts { margin: 20px 0; }
+    .chart-box { margin: 20px 0; width: 100%; height: 300px; }
+    .table-container { margin-top: 20px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+    th { background: #ffe600; }
   </style>
 </head>
 <body>
-<div class="page" id="pageRoot">
-  <!-- Section 1: Controls -->
-  <div class="filter-row">
+  <div class="date-select">
     <div>
-      <label for="dateInput">Select Date</label>
-      <input type="date" id="dateInput"/>
+      <label>Select Date: </label>
+      <input type="date" id="reportDate">
+      <button class="btn btn-generate" onclick="generateReport()">Generate</button>
     </div>
-    <div>
-      <button id="btnGenerate" class="primary">Generate</button>
-      <span class="status" id="status">Idle</span>
-    </div>
-    <div style="margin-left:auto">
-      <button id="btnExport" class="primary" title="Download report as PDF">Export PDF</button>
-    </div>
+    <button class="btn btn-export" onclick="exportPDF()">Export PDF</button>
   </div>
 
-  <!-- Section 2: Report -->
-  <div class="report-box">
-    <div id="printArea">
-      <!-- PAGE 1 -->
-      <section class="pdf-page" id="pdfPage1">
-        <div class="header">
-          <div>
-            <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
-            <div id="companyAddress">Ahmedabad, India</div>
-          </div>
-          <div class="meta">
-            <div><b>Report:</b> Low Power Factor Analysis Report</div>
-            <div><b>Report Date:</b> <span id="reportDateLabel">—</span></div>
-            <div><b>Generated:</b> <span id="generatedAt">—</span></div>
-            <div><b>Device:</b> <span id="deviceShown">—</span></div>
-          </div>
-        </div>
+  <div class="container" id="reportContent">
+    <h1 id="reportHeader">Voltage Anomaly Report</h1>
 
-        <div class="summary-row">
-          <div class="kpi"><div class="title">Avg PF (window)</div><div class="value" id="kpiAvgPF">—</div></div>
-          <div class="kpi"><div class="title">Min PF</div><div class="value" id="kpiMinPF">—</div><div class="sub" id="kpiMinPFTs">—</div></div>
-          <div class="kpi"><div class="title">Duration PF &lt; 0.90</div><div class="value" id="kpiDurationLowPF">—</div></div>
-          <div class="kpi danger"><div class="title">Estimated penalty (₹)</div><div class="value" id="kpiPenalty">—</div></div>
-        </div>
+    <div class="summary">
+      <div class="card" id="maxImbalance">Max Imbalance_5 %: --</div>
+      <div class="card" id="totalSags">Total Sag Events: --</div>
+      <div class="card" id="totalSwells">Total Swell Events: --</div>
+      <div class="card" id="minVoltage">Minimum Voltage: --</div>
+    </div>
 
-        <div class="panel">
-          <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
-          <div id="pfTrend" style="height:360px;"></div>
-        </div>
-      </section>
+    <div class="charts">
+      <div id="voltageTrend" class="chart-box"></div>
+      <div id="imbalanceTrend" class="chart-box"></div>
+      <div id="sagSwellCounts" class="chart-box"></div>
+      <div id="boxPlot" class="chart-box"></div>
+    </div>
 
-      <!-- PAGE 2 -->
-      <section class="pdf-page" id="pdfPage2">
-        <div class="grid2" id="page2Grid">
-          <div class="panel">
-            <h3>KWh vs KVArh</h3>
-            <div id="energyBars" style="height:340px;"></div>
-          </div>
-          <div class="panel">
-            <h3>PF vs kW</h3>
-            <div id="pfScatter" style="height:340px;"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- PAGE 3 -->
-      <section class="pdf-page" id="pdfPage3">
-        <div class="panel">
-          <h3>Events Table (PF &lt; 0.90)</h3>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Start</th><th>End</th><th>Min PF</th>
-                  <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th>
-                </tr>
-              </thead>
-              <tbody id="eventsBody"><tr><td colspan="7">Click Generate</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="footer">
-          <div class="remarks">
-            <div><b>Remarks</b></div>
-            <textarea placeholder="Engineer notes..."></textarea>
-          </div>
-          <div class="sign">
-            <div>Reviewed by<div class="line"></div></div>
-            <div>Checked by<div class="line"></div></div>
-          </div>
-        </div>
-      </section>
+    <div class="table-container">
+      <h3>Events Table</h3>
+      <table id="eventTable">
+        <thead>
+          <tr>
+            <th>Start Time</th><th>Type</th><th>Phase</th><th>Value pu</th><th>Imbalance %</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
-</div>
 
 <script>
-/* ===== CONFIG ===== */
-const CONFIG = {
-  COMPANY_NAME: "Pima Controls Pvt Ltd",
-  COMPANY_ADDRESS: "Ahmedabad, India",
-  API_BASE_URL: "https://plantwiz.pimateck.in/api",
-  PF_TARGET: 0.95,
-  LOW_PF_THRESHOLD: 0.90,
-  DEMAND_RATE_INR_PER_KVA: 350,
-  DEFAULT_DEVICE_ID: "a41ff8c0-ce7c-11ef-826c-29d63551db41",
-  KEYS: [
-    "Active_Power","Apparent_Power","Reactive_Power",
-    "Power_Factor","PrrMinConsumption","Apparent_Energy","Reactive_Energy"
-  ]
-};
+const DEVICE_ID = "991cf500-661a-11f0-90f1-775fee303094";
+const NOMINAL_VOLTAGE = 415;
 
-const qs = new URLSearchParams(location.search);
-const JWT = qs.get("token") || "";
-const URL_DEVICE = qs.get("deviceId") || "";
-const DEVICE_ID = URL_DEVICE || CONFIG.DEFAULT_DEVICE_ID;
+// ✅ JWT auto fetch from iframe URL (?token=xxxx)
+const urlParams = new URLSearchParams(window.location.search);
+const token = urlParams.get("token");
 
-document.getElementById("companyName").textContent = CONFIG.COMPANY_NAME;
-document.getElementById("companyAddress").textContent = CONFIG.COMPANY_ADDRESS;
-document.getElementById("deviceShown").textContent = DEVICE_ID;
-
-const today = new Date();
-const pad = n => String(n).padStart(2,"0");
-const defDate = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-document.getElementById("dateInput").value = defDate;
-document.getElementById("reportDateLabel").textContent = defDate;
-document.getElementById("generatedAt").textContent = new Date().toLocaleString();
-
-document.getElementById("btnGenerate").addEventListener("click", generate);
-document.getElementById("btnExport").addEventListener("click", exportPDF);
-
-/* Minimal error reporter to the status area */
-window.addEventListener('error', e=>{
-  const s=document.getElementById('status');
-  if(s) s.textContent = 'Error: ' + (e?.message || 'Script error');
-});
-
-function fmtTs(t){ return new Date(t).toLocaleString(); }
-function isF(v){ return Number.isFinite(v); }
-function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
-
-async function fetchTS(deviceId, keysCsv, startTs, endTs){
-  const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
-              `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
-  const headers = JWT ? { "X-Authorization": `Bearer ${JWT}` } : {};
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.json();
+async function fetchTelemetry(from, to) {
+  const url = `https://thingsboard.cloud/api/plugins/telemetry/DEVICE/${DEVICE_ID}/values/timeseries?keys=Va,Vb,Vc&startTs=${from}&endTs=${to}&interval=60000&limit=5000&agg=AVG`;
+  const response = await fetch(url, {
+    headers: { "X-Authorization": "Bearer " + token }
+  });
+  return response.json();
 }
 
-function mergeSeries(obj){
-  const map = new Map();
-  Object.entries(obj).forEach(([key,arr])=>{
-    (arr||[]).forEach(p=>{
-      const t = +p.ts;
-      const row = map.get(t) || { ts: t };
-      row[key] = num(p.value);
-      map.set(t,row);
+function analyzeAndDisplay(raw) {
+  let data = [];
+  const timestamps = raw.Va?.map(r => r.ts) || [];
+  timestamps.forEach((ts, i) => {
+    data.push({
+      ts,
+      Va: parseFloat(raw.Va?.[i]?.value || 0),
+      Vb: parseFloat(raw.Vb?.[i]?.value || 0),
+      Vc: parseFloat(raw.Vc?.[i]?.value || 0)
     });
   });
-  return Array.from(map.values()).sort((a,b)=>a.ts-b.ts);
-}
 
-function smoothPF(rows, n=5){
-  const q=[]; let sum=0;
-  for (let i=0;i<rows.length;i++){
-    const v = rows[i].PF;
-    if (isF(v)){ q.push(v); sum+=v; if(q.length>n){ sum-=q.shift(); } rows[i].PF = sum/q.length; }
-  }
-}
+  let sagEvents=[], swellEvents=[], imbalanceArr=[];
+  let minVoltage = {val: Infinity, ts: null, phase: ""};
 
-function hourlyEnergyFromRows(rows){
-  const byHour = new Map();
-  rows.forEach(r=>{
-    const d = new Date(r.ts);
-    const bucket = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime();
-    const obj = byHour.get(bucket) || { ts: bucket, perMin: [], reactiveList: [] };
-    if (isF(r.PrrMinConsumption)) obj.perMin.push(r.PrrMinConsumption);
-    if (isF(r.Reactive_Energy)) obj.reactiveList.push(r.Reactive_Energy);
-    byHour.set(bucket, obj);
-  });
-  const out = Array.from(byHour.values()).map(h=>{
-    const kWh = h.perMin.reduce((s,x)=>s+x, 0);
-    let kVArh = 0;
-    if (h.reactiveList.length >= 2){
-      const maxv = Math.max(...h.reactiveList);
-      const minv = Math.min(...h.reactiveList);
-      kVArh = Math.max(0, maxv - minv);
-    }
-    return { ts: h.ts, kWh, kVArh };
-  }).sort((a,b)=>a.ts-b.ts);
-  return out;
-}
+  data.forEach(d=>{
+    let VpuA=d.Va/NOMINAL_VOLTAGE, VpuB=d.Vb/NOMINAL_VOLTAGE, VpuC=d.Vc/NOMINAL_VOLTAGE;
+    let avg=(d.Va+d.Vb+d.Vc)/3;
+    let imbalance=((Math.max(d.Va,d.Vb,d.Vc)-Math.min(d.Va,d.Vb,d.Vc))/avg)*100;
+    imbalanceArr.push({ts:d.ts,val:imbalance});
 
-function detectLowPFEvents(rows, thr){
-  const events=[]; let cur=null;
-  for (let i=0;i<rows.length;i++){
-    const r = rows[i];
-    const low = isF(r.PF) && r.PF < thr;
-    if (low && !cur){
-      cur = { startTs:r.ts, minPF:r.PF, at:r.ts, kW:r.kW, kVAr:r.kVAr, kVA:r.kVA };
-    }
-    if (low && cur && r.PF < cur.minPF){
-      cur.minPF = r.PF; cur.at = r.ts; cur.kW = r.kW; cur.kVAr = r.kVAr; cur.kVA = r.kVA;
-    }
-    if (!low && cur){
-      cur.endTs = rows[i-1]?.ts ?? r.ts;
-      events.push(cur); cur=null;
-    }
-  }
-  if (cur){ cur.endTs = rows.at(-1)?.ts ?? cur.startTs; events.push(cur); }
-  events.forEach(e=> e.durationMin = Math.max(1, Math.round((e.endTs - e.startTs)/60000)) );
-  return events;
-}
-
-function estimatePenalty(rows){
-  let penalty = 0;
-  for (let i=1;i<rows.length;i++){
-    const a=rows[i-1], b=rows[i];
-    const dtDay = (b.ts - a.ts) / (24*3600*1000);
-    const PF = b.PF ?? a.PF;
-    const kVA = isF(b.kVA) ? b.kVA : (isF(a.kVA) ? a.kVA : 0);
-    if (isF(PF) && PF < CONFIG.LOW_PF_THRESHOLD && isF(kVA)){
-      const delta = Math.max(0, (1/PF) - (1/CONFIG.PF_TARGET));
-      penalty += kVA * delta * CONFIG.DEMAND_RATE_INR_PER_KVA * dtDay;
-    }
-  }
-  return Math.round(penalty);
-}
-
-function renderKPIs(rows, events){
-  const pfs = rows.map(r=>r.PF).filter(isF);
-  const avg = pfs.length ? pfs.reduce((s,x)=>s+x,0)/pfs.length : NaN;
-  const minPF = pfs.length ? Math.min(...pfs) : NaN;
-  const minIdx = pfs.length ? pfs.indexOf(minPF) : -1;
-  const minTs  = minIdx>=0 ? rows[minIdx].ts : null;
-  const lowDur = events.reduce((s,e)=>s+e.durationMin,0);
-  const penalty = estimatePenalty(rows);
-
-  document.getElementById("kpiAvgPF").textContent = isF(avg)?avg.toFixed(2):"—";
-  document.getElementById("kpiMinPF").textContent = isF(minPF)?minPF.toFixed(2):"—";
-  document.getElementById("kpiMinPFTs").textContent = minTs?fmtTs(minTs):"—";
-  document.getElementById("kpiDurationLowPF").textContent = `${lowDur} min`;
-  document.getElementById("kpiPenalty").textContent = penalty.toLocaleString();
-}
-
-function renderPFTrend(rows){
-  const el = document.getElementById("pfTrend");
-  if (!rows.length){
-    el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>';
-    return;
-  }
-
-  const t    = rows.map(r => new Date(r.ts));
-  const pf   = rows.map(r => r.PF);
-  const kw   = rows.map(r => r.kW);
-  const kvar = rows.map(r => r.kVAr);
-
-  Plotly.newPlot("pfTrend", [
-    { x: t, y: pf,   name: "Power Factor",           mode: "lines", line: { width: 2 } },
-    { x: t, y: kvar, name: "Reactive Power (kVAr)",  mode: "lines", yaxis: "y2" },
-    { x: t, y: kw,   name: "Active Power (kW)",      mode: "lines", yaxis: "y2" }
-  ], {
-    margin: { l: 50, r: 60, t: 10, b: 30 },
-    yaxis:  { title: "PF", range: [0, 1.5] },
-    yaxis2: { title: "kW / kVAr", overlaying: "y", side: "right" },
-    shapes: [
-      { type: "line", x0: t[0], x1: t.at(-1), y0: 0.95, y1: 0.95, line: { dash: "dot", color: "#f1c40f" } },
-      { type: "line", x0: t[0], x1: t.at(-1), y0: 0.90, y1: 0.90, line: { dash: "dot", color: "#e74c3c" } }
-    ],
-    legend: { orientation: "h" }
-  }, { displaylogo: false, responsive: true });
-}
-
-
-function renderEnergyBars(hourly){
-  const el = document.getElementById("energyBars");
-  if (!hourly.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
-  const x = hourly.map(h=>new Date(h.ts));
-   Plotly.newPlot("energyBars", [
-    { x, y: hourly.map(h=>h.kWh),  name:"kWh",   type:"bar" },
-    { x, y: hourly.map(h=>h.kVArh),name:"kVArh", type:"bar" }
-  ], {
-    barmode:"group",
-    margin:{l:40,r:10,t:10,b:20},   
-    legend:{
-      orientation:"h",              
-      yanchor:"top",
-      y:-0.3,                    
-      xanchor:"center",
-      x:0.5
-    }
-  }, {displaylogo:false,responsive:true});
-}
-
-function renderScatter(rows){
-  const el = document.getElementById("pfScatter");
-  if (!rows.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
-  const x = rows.map(r=>r.kW);
-  const y = rows.map(r=>r.PF);
-  Plotly.newPlot("pfScatter", [{x,y,mode:"markers",name:"PF vs kW"}],
-    {margin:{l:40,r:10,t:10,b:40}, xaxis:{title:"kW"}, yaxis:{title:"PF", range:[0,1.5]}},
-    {displaylogo:false,responsive:true});
-}
-
-function renderEvents(events){
-  const tb = document.getElementById("eventsBody");
-  tb.innerHTML = "";
-  if (!events.length){ tb.innerHTML = '<tr><td colspan="7">No low PF events</td></tr>'; return; }
-  events.forEach(e=>{
-    const tr = document.createElement("tr");
-    [fmtTs(e.startTs), fmtTs(e.endTs), e.minPF.toFixed(2),
-     (e.kW??0).toFixed(0), (e.kVAr??0).toFixed(0), (e.kVA??0).toFixed(0),
-     e.durationMin].forEach(v=>{
-      const td=document.createElement("td"); td.textContent=v; tr.appendChild(td);
+    [["Va",d.Va],["Vb",d.Vb],["Vc",d.Vc]].forEach(([ph,val])=>{
+      if(val<minVoltage.val){minVoltage={val,ts:d.ts,phase:ph}}
     });
-    tb.appendChild(tr);
+    [["Va",VpuA],["Vb",VpuB],["Vc",VpuC]].forEach(([ph,vpu])=>{
+      if(vpu<0.9) sagEvents.push({ts:d.ts,phase:ph,vpu,imbalance});
+      if(vpu>1.1) swellEvents.push({ts:d.ts,phase:ph,vpu,imbalance});
+    });
+  });
+
+  document.getElementById("totalSags").innerText="Total Sag Events: "+sagEvents.length;
+  document.getElementById("totalSwells").innerText="Total Swell Events: "+swellEvents.length;
+  document.getElementById("maxImbalance").innerText="Max Imbalance %: "+(Math.max(...imbalanceArr.map(x=>x.val)).toFixed(1));
+  document.getElementById("minVoltage").innerText="Minimum Voltage: "+minVoltage.val.toFixed(0)+" V ("+minVoltage.phase+")";
+
+  Plotly.newPlot("voltageTrend",[
+    {x:data.map(d=>new Date(d.ts)),y:data.map(d=>d.Va/NOMINAL_VOLTAGE),name:"Va (pu)",mode:"lines"},
+    {x:data.map(d=>new Date(d.ts)),y:data.map(d=>d.Vb/NOMINAL_VOLTAGE),name:"Vb (pu)",mode:"lines"},
+    {x:data.map(d=>new Date(d.ts)),y:data.map(d=>d.Vc/NOMINAL_VOLTAGE),name:"Vc (pu)",mode:"lines"}
+  ],{title:"Three-Phase Voltage Trend",legend:{orientation:"h",y:-0.3}});
+
+  Plotly.newPlot("imbalanceTrend",[
+    {x:imbalanceArr.map(d=>new Date(d.ts)),y:imbalanceArr.map(d=>d.val),name:"Imbalance %",mode:"lines"}
+  ],{title:"Imbalance % Trend",legend:{orientation:"h",y:-0.3}});
+
+  // Fill table
+  const tbody=document.querySelector("#eventTable tbody");
+  tbody.innerHTML="";
+  sagEvents.concat(swellEvents).forEach(ev=>{
+    let tr=document.createElement("tr");
+    tr.innerHTML=`<td>${new Date(ev.ts).toLocaleString()}</td><td>${ev.vpu<0.9?"Sag":"Swell"}</td><td>${ev.phase}</td><td>${ev.vpu.toFixed(2)}</td><td>${ev.imbalance.toFixed(1)}</td>`;
+    tbody.appendChild(tr);
   });
 }
 
-async function generate(){
-  const dateStr = document.getElementById("dateInput").value;
-  if (!JWT){ alert("Missing token in URL (?token=)"); return; }
-
-  document.getElementById("status").textContent = "Fetching…";
-  document.getElementById("reportDateLabel").textContent = dateStr;
-  document.getElementById("generatedAt").textContent = new Date().toLocaleString();
-  document.getElementById("deviceShown").textContent = DEVICE_ID;
-
-  const start = new Date(dateStr+"T00:00:00");
-  const end   = new Date(dateStr+"T23:59:59");
-
-  try{
-    const json = await fetchTS(DEVICE_ID, CONFIG.KEYS.join(","), start.getTime(), end.getTime());
-
-    const rows = mergeSeries(json).map(r=>{
-      const kW   = num(r.Active_Power);
-      const kVAr = num(r.Reactive_Power);
-      const kVA  = isF(r.Apparent_Power) ? r.Apparent_Power :
-                   (isF(kW)&&isF(kVAr)) ? Math.sqrt(kW*kW + kVAr*kVAr) : NaN;
-      const pf   = isF(r.Power_Factor) ? r.Power_Factor :
-                   (isF(kW)&&isF(kVA)&&kVA>0 ? kW/kVA : NaN);
-      return {
-        ts: r.ts, kW, kVAr, kVA, PF: pf,
-        PrrMinConsumption: num(r.PrrMinConsumption),
-        Reactive_Energy: num(r.Reactive_Energy),
-        Apparent_Energy: num(r.Apparent_Energy)
-      };
-    });
-
-    smoothPF(rows, 5);
-    const hourly = hourlyEnergyFromRows(rows);
-    const events = detectLowPFEvents(rows, CONFIG.LOW_PF_THRESHOLD);
-
-    renderKPIs(rows, events);
-    renderPFTrend(rows);
-    renderEnergyBars(hourly);
-    renderScatter(rows);
-    renderEvents(events);
-
-    document.getElementById("status").textContent = "Done";
-  }catch(err){
-    console.error(err);
-    document.getElementById("status").textContent = "Error";
-    alert("Failed to fetch/build report.\n" + err.message);
-  }
+async function generateReport() {
+  let d=document.getElementById("reportDate").value;
+  if(!d){alert("Select date");return;}
+  let from=new Date(d+"T00:00:00").getTime();
+  let to=new Date(d+"T23:59:59").getTime();
+  let raw=await fetchTelemetry(from,to);
+  analyzeAndDisplay(raw);
 }
 
-function resizePlots(){
-  ['pfTrend','energyBars','pfScatter'].forEach(id=>{
-    const el=document.getElementById(id);
-    try{ Plotly.Plots.resize(el); }catch(e){}
-  });
+async function exportPDF() {
+  const header=document.getElementById("reportHeader");
+  header.style.display="block";
+  await html2pdf().set({
+    margin:[0.3,0.3,0.3,0.3],
+    filename:'Voltage_Anomaly_Report.pdf',
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,scrollY:0},
+    jsPDF:{unit:'in',format:'a4',orientation:'portrait'},
+    pagebreak:{mode:['css','legacy']}
+  }).from(document.getElementById("reportContent")).save();
+  header.style.display="none";
 }
-
-/* Export: 3 explicit PDF pages (landscape), near-zero margins */
-async function exportPDF(){
-  const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
-  if (!jsPDFCtor){ alert('jsPDF failed to load. Check CDN connectivity.'); return; }
-
-  const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
-
-  document.body.classList.add('pdf');
-  await new Promise(r=>setTimeout(r,120));
-  resizePlots();
-  await new Promise(r=>setTimeout(r,140));
-
-  const pdf = new jsPDFCtor({ orientation:'landscape', unit:'mm', format:'a4' });
-  const margin = 0;
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-
-  const addPage = async (node, first=false) => {
-    const canvas = await html2canvas(node, {
-      backgroundColor:'#ffffff',
-      scale:2, useCORS:true, scrollX:0, scrollY:0,
-      windowWidth: node.scrollWidth, windowHeight: node.scrollHeight
-    });
-    const img = canvas.toDataURL('image/jpeg', 0.98);
-    const props = pdf.getImageProperties(img);
-    let w = pageW - margin*2;
-    let h = (props.height * w) / props.width;
-    if (h > pageH - margin*2){ h = pageH - margin*2; w = (props.width * h) / props.height; }
-    const x = (pageW - w)/2, y = (pageH - h)/2;
-    if (!first) pdf.addPage('a4','landscape');
-    pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
-  };
-
-  await addPage(document.getElementById('pdfPage1'), true);
-  await addPage(document.getElementById('pdfPage2'));
-  await addPage(document.getElementById('pdfPage3'));
-
-  pdf.save(`Low_PF_Report_${dateStr}.pdf`);
-
-  document.body.classList.remove('pdf');
-  await new Promise(r=>setTimeout(r,60));
-  resizePlots();
-}
-
-/* Auto-run if token present */
-window.addEventListener("load", ()=>{ if (JWT){ generate(); } });</script>
+</script>
 </body>
 </html>
