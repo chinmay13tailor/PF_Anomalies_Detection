@@ -387,10 +387,20 @@ function renderEnergyBars(hourly){
   const el = document.getElementById("energyBars");
   if (!hourly.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
   const x = hourly.map(h=>new Date(h.ts));
-  Plotly.newPlot("energyBars", [
-    {x, y: hourly.map(h=>h.kWh),  name:"kWh (sum of PrrMinConsumption)",  type:"bar"},
-    {x, y: hourly.map(h=>h.kVArh),name:"kVArh (Δ Reactive_Energy)", type:"bar"}
-  ], {barmode:"group", margin:{l:40,r:10,t:10,b:30}}, {displaylogo:false,responsive:true});
+   Plotly.newPlot("energyBars", [
+    { x, y: hourly.map(h=>h.kWh),  name:"kWh",   type:"bar" },
+    { x, y: hourly.map(h=>h.kVArh),name:"kVArh", type:"bar" }
+  ], {
+    barmode:"group",
+    margin:{l:40,r:10,t:10,b:60},   
+    legend:{
+      orientation:"h",              
+      yanchor:"top",
+      y:-0.3,                    
+      xanchor:"center",
+      x:0.5
+    }
+  }, {displaylogo:false,responsive:true});
 }
 
 function renderScatter(rows){
