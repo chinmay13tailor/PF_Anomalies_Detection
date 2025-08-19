@@ -25,12 +25,24 @@
     .page{padding:2rem}
 
     /* Section 1: Controls box */
-    .filter-row{
-      width:95%;margin:1rem auto;
-      display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;
-      background:#fff;padding:1rem;border-radius:10px;
-      box-shadow:0 4px 10px rgba(0,0,0,.08)
-    }
+/* Controls box */
+.filter-row{
+  width:95%;
+  margin:1rem auto;
+  display:flex;
+  flex-wrap:wrap;
+  gap:1rem;
+  align-items:flex-end;
+  background:#fff;
+  padding:1rem;
+  border-radius:10px;
+  box-shadow:0 4px 10px rgba(0,0,0,.08);
+
+  position:sticky;   /* NEW */
+  top:0;             /* sticks to top */
+  z-index:1000;      /* stays above report content */
+}
+
     label{font-weight:600;display:block;margin:0 0 .35rem}
     input,button{padding:.55rem .8rem;font-size:1rem;border:1px solid #d0d7de;border-radius:6px;background:#fff}
     button.primary{background:#1363df;color:#fff;border:0;font-weight:700;cursor:pointer}
