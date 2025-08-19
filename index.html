@@ -16,21 +16,42 @@
 
   <style>
     *{box-sizing:border-box}
-    body{font-family:'Segoe UI',sans-serif;background:#f5f7fa;margin:0;color:#333}
+    body{
+      font-family:'Segoe UI',sans-serif;
+      background:#EEEEEE;   /* background updated */
+      margin:0;
+      color:#333
+    }
     .page{padding:2rem}
 
-    /* Controls (not exported) */
-    .filter-row{width:95%;margin:1rem auto;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;background:#fff;padding:1rem;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.08)}
+    /* Section 1: Controls box */
+    .filter-row{
+      width:95%;margin:1rem auto;
+      display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;
+      background:#fff;padding:1rem;border-radius:10px;
+      box-shadow:0 4px 10px rgba(0,0,0,.08)
+    }
     label{font-weight:600;display:block;margin:0 0 .35rem}
     input,button{padding:.55rem .8rem;font-size:1rem;border:1px solid #d0d7de;border-radius:6px;background:#fff}
     button.primary{background:#1363df;color:#fff;border:0;font-weight:700;cursor:pointer}
     button.primary:hover{background:#0e4fb1}
     .status{margin-left:.5rem;color:#6a737d}
 
-    /* Common blocks */
-    .header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:1rem}
+    /* --- Header (hidden in screen, shown in PDF) --- */
+    .header{
+      display:none;
+      justify-content:space-between;flex-wrap:wrap;gap:1rem;
+      border-bottom:1px solid #e5e7eb;padding-bottom:1rem
+    }
     .company{font-weight:700;font-size:1.1rem}
     .meta{color:#555}
+
+    /* Section 2: Report area */
+    .report-box{
+      width:95%;margin:1rem auto;padding:1rem;
+      background:#fff;border-radius:10px;
+      box-shadow:0 4px 14px rgba(0,0,0,.08);
+    }
 
     .summary-row{width:95%;margin:1rem auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
     .kpi{background:#fff;border-radius:10px;padding:1rem 1.25rem;box-shadow:0 4px 10px rgba(0,0,0,.08)}
@@ -42,7 +63,6 @@
     .panel{width:95%;margin:1rem auto;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:1rem}
     .panel h3{margin:.2rem 0 1rem}
 
-    /* PAGE-2: vertical layout (one chart per line) */
     .grid2{display:grid;grid-template-columns:1fr;gap:0.9rem}
 
     .table-wrap{overflow:auto}
@@ -68,12 +88,10 @@
       .footer{grid-template-columns:1fr}
     }
 
-    /* -------- PDF MODE (A4 landscape, tight) -------- */
+    /* -------- PDF MODE -------- */
+    body.pdf .header{display:flex !important;} /* show header only in PDF */
     body.pdf .pdf-page{
-      width:294mm;               /* wide capture for clarity */
-      background:#fff;
-      margin:0 auto;
-      padding:2mm 3mm;           /* very tight inner padding */
+      width:294mm;background:#fff;margin:0 auto;padding:2mm 3mm;
     }
     body.pdf .panel{ padding:8px 10px; margin:8px auto; width:99%; }
     body.pdf .summary-row{ width:99%; gap:.6rem; }
@@ -82,7 +100,7 @@
 </head>
 <body>
 <div class="page" id="pageRoot">
-  <!-- Controls (not exported) -->
+  <!-- Section 1: Controls -->
   <div class="filter-row">
     <div>
       <label for="dateInput">Select Date</label>
@@ -97,78 +115,80 @@
     </div>
   </div>
 
-  <!-- Printable area split into 3 pages -->
-  <div id="printArea">
-    <!-- PAGE 1 -->
-    <section class="pdf-page" id="pdfPage1">
-      <div class="header">
-        <div>
-          <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
-          <div id="companyAddress">Ahmedabad, India</div>
+  <!-- Section 2: Report -->
+  <div class="report-box">
+    <div id="printArea">
+      <!-- PAGE 1 -->
+      <section class="pdf-page" id="pdfPage1">
+        <div class="header">
+          <div>
+            <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
+            <div id="companyAddress">Ahmedabad, India</div>
+          </div>
+          <div class="meta">
+            <div><b>Report:</b> Low Power Factor Analysis Report</div>
+            <div><b>Report Date:</b> <span id="reportDateLabel">—</span></div>
+            <div><b>Generated:</b> <span id="generatedAt">—</span></div>
+            <div><b>Device:</b> <span id="deviceShown">—</span></div>
+          </div>
         </div>
-        <div class="meta">
-          <div><b>Report:</b> Low Power Factor Analysis Report</div>
-          <div><b>Report Date:</b> <span id="reportDateLabel">—</span></div>
-          <div><b>Generated:</b> <span id="generatedAt">—</span></div>
-          <div><b>Device:</b> <span id="deviceShown">—</span></div>
+
+        <div class="summary-row">
+          <div class="kpi"><div class="title">Avg PF (window)</div><div class="value" id="kpiAvgPF">—</div></div>
+          <div class="kpi"><div class="title">Min PF</div><div class="value" id="kpiMinPF">—</div><div class="sub" id="kpiMinPFTs">—</div></div>
+          <div class="kpi"><div class="title">Duration PF &lt; 0.90</div><div class="value" id="kpiDurationLowPF">—</div></div>
+          <div class="kpi danger"><div class="title">Estimated penalty (₹)</div><div class="value" id="kpiPenalty">—</div></div>
         </div>
-      </div>
 
-      <div class="summary-row">
-        <div class="kpi"><div class="title">Avg PF (window)</div><div class="value" id="kpiAvgPF">—</div></div>
-        <div class="kpi"><div class="title">Min PF</div><div class="value" id="kpiMinPF">—</div><div class="sub" id="kpiMinPFTs">—</div></div>
-        <div class="kpi"><div class="title">Duration PF &lt; 0.90</div><div class="value" id="kpiDurationLowPF">—</div></div>
-        <div class="kpi danger"><div class="title">Estimated penalty (₹)</div><div class="value" id="kpiPenalty">—</div></div>
-      </div>
-
-      <div class="panel">
-        <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
-        <div id="pfTrend" style="height:360px;"></div>
-      </div>
-    </section>
-
-    <!-- PAGE 2 (vertical charts) -->
-    <section class="pdf-page" id="pdfPage2">
-      <div class="grid2" id="page2Grid">
         <div class="panel">
-          <h3>Hourly kWh vs kVArh</h3>
-          <div id="energyBars" style="height:340px;"></div>
+          <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
+          <div id="pfTrend" style="height:360px;"></div>
         </div>
+      </section>
+
+      <!-- PAGE 2 -->
+      <section class="pdf-page" id="pdfPage2">
+        <div class="grid2" id="page2Grid">
+          <div class="panel">
+            <h3>Hourly kWh vs kVArh</h3>
+            <div id="energyBars" style="height:340px;"></div>
+          </div>
+          <div class="panel">
+            <h3>PF vs kW</h3>
+            <div id="pfScatter" style="height:340px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE 3 -->
+      <section class="pdf-page" id="pdfPage3">
         <div class="panel">
-          <h3>PF vs kW</h3>
-          <div id="pfScatter" style="height:340px;"></div>
+          <h3>Events Table (PF &lt; 0.90)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Start</th><th>End</th><th>Min PF</th>
+                  <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th>
+                </tr>
+              </thead>
+              <tbody id="eventsBody"><tr><td colspan="7">Click Generate</td></tr></tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <!-- PAGE 3 -->
-    <section class="pdf-page" id="pdfPage3">
-      <div class="panel">
-        <h3>Events Table (PF &lt; 0.90)</h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Start</th><th>End</th><th>Min PF</th>
-                <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th>
-              </tr>
-            </thead>
-            <tbody id="eventsBody"><tr><td colspan="7">Click Generate</td></tr></tbody>
-          </table>
+        <div class="footer">
+          <div class="remarks">
+            <div><b>Remarks</b></div>
+            <textarea placeholder="Engineer notes..."></textarea>
+          </div>
+          <div class="sign">
+            <div>Reviewed by<div class="line"></div></div>
+            <div>Checked by<div class="line"></div></div>
+          </div>
         </div>
-      </div>
-
-      <div class="footer">
-        <div class="remarks">
-          <div><b>Remarks</b></div>
-          <textarea placeholder="Engineer notes..."></textarea>
-        </div>
-        <div class="sign">
-          <div>Reviewed by<div class="line"></div></div>
-          <div>Checked by<div class="line"></div></div>
-        </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </div>
 </div>
 
@@ -486,7 +506,6 @@ async function exportPDF(){
 }
 
 /* Auto-run if token present */
-window.addEventListener("load", ()=>{ if (JWT){ generate(); } });
-</script>
+window.addEventListener("load", ()=>{ if (JWT){ generate(); } });</script>
 </body>
 </html>
