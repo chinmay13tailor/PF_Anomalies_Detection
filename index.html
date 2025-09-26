@@ -231,11 +231,11 @@ document.getElementById("deviceShown").textContent = DEVICE_ID;
 
 const today = new Date();
 const pad = n => String(n).padStart(2,"0");
-/* --- Default date: 11-Aug-2025 (ISO format expected by <input type="date">) --- */
-const pad = n => String(n).padStart(2,"0");
-const DEFAULT_DATE_ISO = "2025-08-11";
-document.getElementById("dateInput").value = DEFAULT_DATE_ISO;
-document.getElementById("reportDateLabel").textContent = DEFAULT_DATE_ISO;
+  
+//const defDate = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+const defDate = "2025-08-11"
+document.getElementById("dateInput").value = defDate;
+document.getElementById("reportDateLabel").textContent = defDate;
 document.getElementById("generatedAt").textContent = new Date().toLocaleString();
 
 document.getElementById("btnGenerate").addEventListener("click", generate);
