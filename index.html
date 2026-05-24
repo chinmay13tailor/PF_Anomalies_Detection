@@ -270,9 +270,9 @@ td{
 
 <script>
 
-/* ============================
+/* =========================================================
    CONFIG
-============================ */
+========================================================= */
 
 const DEVICE_ID = "1250b550-5bdb-11f0-9b14-15d3b3a473c1";
 
@@ -280,176 +280,116 @@ const qs = new URLSearchParams(window.location.search);
 
 const JWT = qs.get("token");
 
-/* ============================
-   DATE DEFAULT
-============================ */
+/* =========================================================
+   FETCH DATA
+========================================================= */
 
-const datePicker = document.getElementById("datePicker");
-
-const today = new Date();
-
-datePicker.value =
-    today.getFullYear() + "-" +
-    String(today.getMonth()+1).padStart(2,'0') + "-" +
-    String(today.getDate()).padStart(2,'0');
-
-/* ============================
-   CHART
-============================ */
-
-const ctx = document.getElementById("pfChart");
-
-const pfChart = new Chart(ctx,{
-
-    type:'line',
-
-    data:{
-        labels:[],
-        datasets:[
-            {
-                label:'Power Factor',
-                data:[],
-                borderColor:'#2563eb',
-                backgroundColor:'rgba(37,99,235,.15)',
-                tension:.3,
-                yAxisID:'y'
-            },
-            {
-                label:'Active Power',
-                data:[],
-                borderColor:'#ef4444',
-                backgroundColor:'rgba(239,68,68,.15)',
-                tension:.3,
-                yAxisID:'y1'
-            }
-        ]
-    },
-
-    options:{
-        responsive:true,
-        maintainAspectRatio:false,
-
-        interaction:{
-            mode:'index',
-            intersect:false
-        },
-
-        scales:{
-            y:{
-                position:'left',
-                min:0,
-                max:1
-            },
-            y1:{
-                position:'right',
-                grid:{
-                    drawOnChartArea:false
-                }
-            }
-        }
-    }
-});
-
-/* ============================
-   FETCH TELEMETRY
-============================ */
-
-async function fetchTelemetry(startTs,endTs){
+async function fetchTelemetry(startTs, endTs) {
 
     const url =
-    `https://plantwiz.pimateck.in/api/plugins/telemetry/DEVICE/${DEVICE_ID}/values/timeseries`
-    + `?keys=chiller_plant_1`
-    + `&startTs=${startTs}`
-    + `&endTs=${endTs}`
-    + `&limit=50000`
-    + `&agg=NONE`;
+        `https://plantwiz.pimateck.in/api/plugins/telemetry/DEVICE/${DEVICE_ID}/values/timeseries`
+        + `?keys=chiller_plant_1`
+        + `&startTs=${startTs}`
+        + `&endTs=${endTs}`
+        + `&limit=50000`
+        + `&agg=NONE`;
 
-    const response = await fetch(url,{
-        method:"GET",
-        headers:{
-            "Content-Type":"application/json",
-            "X-Authorization":"Bearer " + JWT
+    console.log("API URL =", url);
+
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            "X-Authorization": "Bearer " + JWT
         }
     });
 
-    if(!response.ok){
-        throw new Error("API Error : " + response.status);
+    console.log("Response Status =", response.status);
+
+    if (!response.ok) {
+        throw new Error("API ERROR : " + response.status);
     }
 
     return await response.json();
 }
 
-/* ============================
-   PARSE
-============================ */
+/* =========================================================
+   PARSE DATA
+========================================================= */
 
-function parseData(apiData){
+function parseTelemetry(apiData) {
 
     const arr = apiData.chiller_plant_1 || [];
 
-    return arr.map(item=>{
+    return arr.map(item => {
 
         let parsed = {};
 
-        try{
+        try {
+
             parsed = JSON.parse(item.value);
-        }catch(e){}
 
-        return{
+        } catch (e) {
 
-            ts:item.ts,
+            console.error("JSON Parse Error", e);
+        }
 
-            pf:parseFloat(parsed["18_Avg_PF"]) || 0,
+        return {
 
-            kw:parseFloat(parsed["18_Act_Power_Total"]) || 0,
+            ts: item.ts,
 
-            kwh:parseFloat(parsed["18_Act_Energy_Total"]) || 0
+            /* POWER FACTOR */
+            pf:
+                parseFloat(parsed["18_Avg_PF"]) || 0,
+
+            /* ACTIVE POWER */
+            kw:
+                parseFloat(parsed["18_Act_Power_Total"]) || 0,
+
+            /* ACTIVE ENERGY */
+            kwh:
+                parseFloat(parsed["18_Act_Energy_Total"]) || 0
         };
     });
 }
 
-/* ============================
+/* =========================================================
    GENERATE REPORT
-============================ */
+========================================================= */
 
-async function generateReport(){
+async function generateReport() {
 
-    try{
+    try {
 
-        document.getElementById("statusText").innerHTML = "Loading...";
-
-        const selectedDate = new Date(datePicker.value);
+        const selectedDate =
+            new Date(document.getElementById("datePicker").value);
 
         const startTs = selectedDate.getTime();
 
         const endTs = startTs + 86400000;
 
-        const raw = await fetchTelemetry(startTs,endTs);
+        const rawData =
+            await fetchTelemetry(startTs, endTs);
 
-        const data = parseData(raw);
+        console.log("RAW DATA =", rawData);
 
-        if(!data.length){
+        const data =
+            parseTelemetry(rawData);
 
-            document.getElementById("statusText").innerHTML = "No data found";
+        console.log("PARSED DATA =", data);
 
-            return;
-        }
-
-        /* KPI */
+        /* ================= KPI ================= */
 
         const avgPF =
-            data.reduce((a,b)=>a+b.pf,0)/data.length;
+            data.reduce((a, b) => a + b.pf, 0) / data.length;
 
         const minPF =
-            Math.min(...data.map(x=>x.pf));
-
-        const lowPFCount =
-            data.filter(x=>x.pf < 0.90).length;
+            Math.min(...data.map(x => x.pf));
 
         const lowPFDuration =
-            lowPFCount;
+            data.filter(x => x.pf < 0.90).length;
 
-        const penalty =
+        const estimatedPenalty =
             (lowPFDuration * 12).toFixed(0);
 
         document.getElementById("avgPF").innerHTML =
@@ -462,12 +402,12 @@ async function generateReport(){
             lowPFDuration;
 
         document.getElementById("penalty").innerHTML =
-            penalty;
+            estimatedPenalty;
 
-        /* CHART */
+        /* ================= CHART ================= */
 
         pfChart.data.labels =
-            data.map(x=>{
+            data.map(x => {
 
                 const d = new Date(x.ts);
 
@@ -475,51 +415,50 @@ async function generateReport(){
             });
 
         pfChart.data.datasets[0].data =
-            data.map(x=>x.pf);
+            data.map(x => x.pf);
 
         pfChart.data.datasets[1].data =
-            data.map(x=>x.kw);
+            data.map(x => x.kw);
 
         pfChart.update();
 
-        /* TABLE */
+        /* ================= TABLE ================= */
 
         let html = "";
 
-        data.forEach(x=>{
+        data.forEach(x => {
 
             const status =
                 x.pf < 0.90
-                ? '<span class="low">LOW PF</span>'
-                : '<span class="normal">NORMAL</span>';
+                    ? '<span class="low">LOW PF</span>'
+                    : '<span class="normal">NORMAL</span>';
 
             html += `
             <tr>
                 <td>${new Date(x.ts).toLocaleString()}</td>
                 <td>${x.pf.toFixed(3)}</td>
                 <td>${x.kw.toFixed(2)}</td>
+                <td>${x.kwh.toFixed(2)}</td>
                 <td>${status}</td>
             </tr>
             `;
         });
 
-        document.getElementById("eventTable").innerHTML = html;
+        document.getElementById("eventTable").innerHTML =
+            html;
+
+    } catch (err) {
+
+        console.error("Fetch Error =", err);
 
         document.getElementById("statusText").innerHTML =
-            `${data.length} samples loaded`;
-
-    }catch(err){
-
-        console.error(err);
-
-        document.getElementById("statusText").innerHTML =
-            "Error loading data";
+            "Error loading telemetry";
     }
 }
 
-/* ============================
+/* =========================================================
    AUTO LOAD
-============================ */
+========================================================= */
 
 generateReport();
 
