@@ -1,468 +1,535 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Low Power Factor Analysis Report</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<title>PF Analysis</title>
+  <!-- Plotly (pinned) -->
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PDF deps -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-<style>
+  <style>
+    *{box-sizing:border-box}
+    body{
+      font-family:'Segoe UI',sans-serif;
+      background:#EEEEEE;   /* background updated */
+      margin:0;
+      color:#333
+    }
+    .page{padding:2rem}
 
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:Arial,sans-serif;
+    /* Section 1: Controls box */
+/* Controls box */
+.filter-row{
+  width:95%;
+  margin:1rem auto;
+  display:flex;
+  flex-wrap:wrap;
+  gap:1rem;
+  align-items:flex-end;
+  background:#fff;
+  padding:1rem;
+  border-radius:10px;
+  box-shadow:0 4px 10px rgba(0,0,0,.08);
+
+  position:sticky;   /* NEW */
+  top:0;             /* sticks to top */
+  z-index:1000;      /* stays above report content */
 }
 
-body{
-    background:#f5f7fb;
-    padding:12px;
-}
+    label{font-weight:600;display:block;margin:0 0 .35rem}
+    input,button{padding:.55rem .8rem;font-size:1rem;border:1px solid #d0d7de;border-radius:6px;background:#fff}
+    button.primary{background:#1363df;color:#fff;border:0;font-weight:700;cursor:pointer}
+    button.primary:hover{background:#0e4fb1}
+    .status{margin-left:.5rem;color:#6a737d}
 
-/* TOP BAR */
+    /* --- Header (hidden in screen, shown in PDF) --- */
+    .header{
+      display:none;
+      justify-content:space-between;flex-wrap:wrap;gap:1rem;
+      border-bottom:1px solid #e5e7eb;padding-bottom:1rem
+    }
+    .company{font-weight:700;font-size:1.1rem}
+    .meta{color:#555}
 
-.top-bar{
-    width:100%;
-    background:#fff;
-    border-radius:12px;
-    padding:14px;
-    display:flex;
-    align-items:center;
-    gap:12px;
-    margin-bottom:14px;
-    box-shadow:0 2px 10px rgba(0,0,0,.05);
-}
+    /* Section 2: Report area */
+    .report-box{
+      width:95%;margin:1rem auto;padding:1rem;
+      background:#fff;border-radius:10px;
+      box-shadow:0 4px 14px rgba(0,0,0,.08);
+    }
 
-.date-input{
-    height:42px;
-    padding:0 14px;
-    border:1px solid #dfe3eb;
-    border-radius:10px;
-    font-size:14px;
-}
+    .summary-row{width:95%;margin:1rem auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+    .kpi{background:#fff;border-radius:10px;padding:1rem 1.25rem;box-shadow:0 4px 10px rgba(0,0,0,.08)}
+    .kpi .title{color:#666;font-size:.9rem}
+    .kpi .value{font-size:2rem;font-weight:800}
+    .kpi .sub{color:#666;margin-top:.25rem}
+    .kpi.danger{background:#ffe0dd}
 
-.analyze-btn{
-    height:42px;
-    padding:0 22px;
-    border:none;
-    border-radius:10px;
-    background:#2563eb;
-    color:#fff;
-    font-weight:600;
-    cursor:pointer;
-}
+    .panel{width:95%;margin:1rem auto;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:1rem}
+    .panel h3{margin:.2rem 0 1rem}
 
-/* KPI */
+    .grid2{display:grid;grid-template-columns:1fr;gap:0.9rem}
 
-.kpi-grid{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:14px;
-    margin-bottom:14px;
-}
+    .table-wrap{overflow:auto}
+    table{width:100%;border-collapse:collapse;background:#fff;table-layout:fixed}
+    th,td{padding:.8rem 1rem;border-bottom:1px solid #eee;text-align:center;white-space:normal}
+    thead th{background:#ffd700;color:#222}
+    tbody tr:nth-child(even){background:#fafafa}
 
-.kpi-card{
-    background:#fff;
-    border-radius:14px;
-    padding:18px;
-    position:relative;
-    overflow:hidden;
-    min-height:140px;
-    box-shadow:0 2px 10px rgba(0,0,0,.05);
-}
+    .footer{
+      width:95%; margin:1rem auto 0; display:grid;
+      grid-template-columns:minmax(0,2fr) minmax(260px,1fr);
+      gap:1rem; align-items:start;
+    }
+    .remarks textarea{
+      width:100%; min-height:130px; resize:vertical;
+      border:1px solid #d0d7de; border-radius:8px; padding:.6rem; background:#fff;
+    }
+    .sign{display:flex;flex-direction:column;gap:20px}
+    .sign .line{width:100%; height:0; border-bottom:2px solid #333; margin-top:10px}
 
-.kpi-card::before{
-    content:"";
-    position:absolute;
-    left:0;
-    top:0;
-    width:4px;
-    height:100%;
-}
+    @media (max-width:980px){
+      .summary-row{grid-template-columns:1fr 1fr}
+      .footer{grid-template-columns:1fr}
+    }
 
-.green::before{background:#22c55e;}
-.orange::before{background:#f59e0b;}
-.blue::before{background:#2563eb;}
-.red::before{background:#ef4444;}
-
-.kpi-title{
-    font-size:12px;
-    letter-spacing:2px;
-    color:#94a3b8;
-    font-weight:700;
-    margin-bottom:22px;
-}
-
-.kpi-value{
-    font-size:42px;
-    font-weight:700;
-    color:#0f172a;
-    margin-bottom:14px;
-}
-
-.kpi-sub{
-    color:#94a3b8;
-    font-size:13px;
-}
-
-.live-badge{
-    display:inline-block;
-    background:#dcfce7;
-    color:#16a34a;
-    padding:5px 10px;
-    border-radius:8px;
-    font-size:11px;
-    font-weight:700;
-    margin-right:8px;
-}
-
-/* CHART */
-
-.chart-card{
-    background:#fff;
-    border-radius:14px;
-    padding:18px;
-    margin-bottom:14px;
-    box-shadow:0 2px 10px rgba(0,0,0,.05);
-}
-
-.chart-title{
-    font-size:16px;
-    font-weight:700;
-    margin-bottom:20px;
-}
-
-canvas{
-    width:100% !important;
-    height:420px !important;
-}
-
-/* TABLE */
-
-.table-card{
-    background:#fff;
-    border-radius:14px;
-    padding:18px;
-    box-shadow:0 2px 10px rgba(0,0,0,.05);
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-
-th{
-    background:#f1f5f9;
-    padding:12px;
-    text-align:left;
-    font-size:13px;
-}
-
-td{
-    padding:12px;
-    border-bottom:1px solid #e2e8f0;
-    font-size:13px;
-}
-
-.low{
-    color:#dc2626;
-    font-weight:700;
-}
-
-.normal{
-    color:#16a34a;
-    font-weight:700;
-}
-
-</style>
+    /* -------- PDF MODE -------- */
+    body.pdf .header{display:flex !important;} /* show header only in PDF */
+    body.pdf .pdf-page{
+      width:294mm;background:#fff;margin:0 auto;padding:2mm 3mm;
+    }
+    body.pdf .panel{ padding:8px 10px; margin:8px auto; width:99%; }
+    body.pdf .summary-row{ width:99%; gap:.6rem; }
+    body.pdf .footer{ width:99%; gap:.6rem; }
+  </style>
 </head>
-
 <body>
-
-<div class="top-bar">
-
-    <input type="date" id="datePicker" class="date-input">
-
-    <button class="analyze-btn" onclick="generateReport()">
-        ▶ Analyze
-    </button>
-
-    <div style="margin-left:auto;color:#64748b;font-size:13px;" id="statusText">
-        Ready
+<div class="page" id="pageRoot">
+  <!-- Section 1: Controls -->
+  <div class="filter-row">
+    <div>
+      <label for="dateInput">Select Date</label>
+      <input type="date" id="dateInput"/>
     </div>
-
-</div>
-
-<div class="kpi-grid">
-
-    <div class="kpi-card green">
-        <div class="kpi-title">AVERAGE PF</div>
-        <div class="kpi-value" id="avgPF">--</div>
-        <div>
-            <span class="live-badge">LIVE</span>
-            <span class="kpi-sub">Average from telemetry</span>
-        </div>
+    <div>
+      <button id="btnGenerate" class="primary">Generate</button>
+      <span class="status" id="status">Idle</span>
     </div>
-
-    <div class="kpi-card orange">
-        <div class="kpi-title">MINIMUM PF</div>
-        <div class="kpi-value" id="minPF">--</div>
-        <div>
-            <span class="live-badge">LIVE</span>
-            <span class="kpi-sub">Lowest detected PF</span>
-        </div>
+    <div style="margin-left:auto">
+      <button id="btnExport" class="primary" title="Download report as PDF">Export PDF</button>
     </div>
+  </div>
 
-    <div class="kpi-card blue">
-        <div class="kpi-title">LOW PF DURATION</div>
-        <div class="kpi-value">
-            <span id="lowPFDuration">--</span>
-            <span style="font-size:28px;color:#94a3b8;">Min</span>
+  <!-- Section 2: Report -->
+  <div class="report-box">
+    <div id="printArea">
+      <!-- PAGE 1 -->
+      <section class="pdf-page" id="pdfPage1">
+        <div class="header">
+          <div>
+            <div class="company" id="companyName">Pima Controls Pvt Ltd</div>
+            <div id="companyAddress">Ahmedabad, India</div>
+          </div>
+          <div class="meta">
+            <div><b>Report:</b> Low Power Factor Analysis Report</div>
+            <div><b>Report Date:</b> <span id="reportDateLabel">—</span></div>
+            <div><b>Generated:</b> <span id="generatedAt">—</span></div>
+            <div><b>Device:</b> <span id="deviceShown">—</span></div>
+          </div>
         </div>
-        <div>
-            <span class="live-badge">LIVE</span>
-            <span class="kpi-sub">PF below 0.90</span>
+
+        <div class="summary-row">
+          <div class="kpi"><div class="title">Avg PF (window)</div><div class="value" id="kpiAvgPF">—</div></div>
+          <div class="kpi"><div class="title">Min PF</div><div class="value" id="kpiMinPF">—</div><div class="sub" id="kpiMinPFTs">—</div></div>
+          <div class="kpi"><div class="title">Duration PF &lt; 0.90</div><div class="value" id="kpiDurationLowPF">—</div></div>
+          <div class="kpi danger"><div class="title">Estimated penalty (₹)</div><div class="value" id="kpiPenalty">—</div></div>
         </div>
+
+        <div class="panel">
+          <h3>PF Trend (with Active_Power & Reactive_Power)</h3>
+          <div id="pfTrend" style="height:360px;"></div>
+        </div>
+      </section>
+
+      <!-- PAGE 2 -->
+      <section class="pdf-page" id="pdfPage2">
+        <div class="grid2" id="page2Grid">
+          <div class="panel">
+            <h3>KWh vs KVArh</h3>
+            <div id="energyBars" style="height:340px;"></div>
+          </div>
+          <div class="panel">
+            <h3>PF vs kW</h3>
+            <div id="pfScatter" style="height:340px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE 3 -->
+      <section class="pdf-page" id="pdfPage3">
+        <div class="panel">
+          <h3>Events Table (PF &lt; 0.90)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Start</th><th>End</th><th>Min PF</th>
+                  <th>kW@minPF</th><th>kVAr@minPF</th><th>kVA@minPF</th><th>Duration (min)</th>
+                </tr>
+              </thead>
+              <tbody id="eventsBody"><tr><td colspan="7">Click Generate</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="remarks">
+            <div><b>Remarks</b></div>
+            <textarea placeholder="Engineer notes..."></textarea>
+          </div>
+          <div class="sign">
+            <div>Reviewed by<div class="line"></div></div>
+            <div>Checked by<div class="line"></div></div>
+          </div>
+        </div>
+      </section>
     </div>
-
-    <div class="kpi-card red">
-        <div class="kpi-title">ESTIMATED PENALTY</div>
-        <div class="kpi-value">₹ <span id="penalty">--</span></div>
-        <div>
-            <span class="live-badge">LIVE</span>
-            <span class="kpi-sub">Estimated</span>
-        </div>
-    </div>
-
-</div>
-
-<div class="chart-card">
-
-    <div class="chart-title">PF Trend With Active Power</div>
-
-    <canvas id="pfChart"></canvas>
-
-</div>
-
-<div class="table-card">
-
-    <div class="chart-title">PF Event Table</div>
-
-    <table>
-
-        <thead>
-        <tr>
-            <th>Timestamp</th>
-            <th>PF</th>
-            <th>Active Power (kW)</th>
-            <th>Status</th>
-        </tr>
-        </thead>
-
-        <tbody id="eventTable"></tbody>
-
-    </table>
-
+  </div>
 </div>
 
 <script>
+/* ===== CONFIG ===== */
+const CONFIG = {
+  COMPANY_NAME: "Pima Controls Pvt Ltd",
+  COMPANY_ADDRESS: "Ahmedabad, India",
+  API_BASE_URL: "https://plantwiz.pimateck.in/api",
+  PF_TARGET: 0.95,
+  LOW_PF_THRESHOLD: 0.90,
+  DEMAND_RATE_INR_PER_KVA: 350,
+  DEFAULT_DEVICE_ID: "a41ff8c0-ce7c-11ef-826c-29d63551db41",
+  KEYS: [
+    "Active_Power","Apparent_Power","Reactive_Power",
+    "Power_Factor","PrrMinConsumption","Apparent_Energy","Reactive_Energy"
+  ]
+};
 
-/* =========================================================
-   CONFIG
-========================================================= */
+const qs = new URLSearchParams(location.search);
+const JWT = qs.get("token") || "";
+const URL_DEVICE = qs.get("deviceId") || "";
+const DEVICE_ID = URL_DEVICE || CONFIG.DEFAULT_DEVICE_ID;
 
-const DEVICE_ID = "1250b550-5bdb-11f0-9b14-15d3b3a473c1";
+document.getElementById("companyName").textContent = CONFIG.COMPANY_NAME;
+document.getElementById("companyAddress").textContent = CONFIG.COMPANY_ADDRESS;
+document.getElementById("deviceShown").textContent = DEVICE_ID;
 
-const qs = new URLSearchParams(window.location.search);
+const today = new Date();
+const pad = n => String(n).padStart(2,"0");
+  
+//const defDate = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+const defDate = "2026-03-09"
+document.getElementById("dateInput").value = defDate;
+document.getElementById("reportDateLabel").textContent = defDate;
+document.getElementById("generatedAt").textContent = new Date().toLocaleString();
 
-const JWT = qs.get("token");
+document.getElementById("btnGenerate").addEventListener("click", generate);
+document.getElementById("btnExport").addEventListener("click", exportPDF);
 
-/* =========================================================
-   FETCH DATA
-========================================================= */
+/* Minimal error reporter to the status area */
+window.addEventListener('error', e=>{
+  const s=document.getElementById('status');
+  if(s) s.textContent = 'Error: ' + (e?.message || 'Script error');
+});
 
-async function fetchTelemetry(startTs, endTs) {
+function fmtTs(t){ return new Date(t).toLocaleString(); }
+function isF(v){ return Number.isFinite(v); }
+function num(v){ const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 
-    const url =
-        `https://plantwiz.pimateck.in/api/plugins/telemetry/DEVICE/${DEVICE_ID}/values/timeseries`
-        + `?keys=chiller_plant_1`
-        + `&startTs=${startTs}`
-        + `&endTs=${endTs}`
-        + `&limit=50000`
-        + `&agg=NONE`;
+async function fetchTS(deviceId, keysCsv, startTs, endTs){
+  const url = `${CONFIG.API_BASE_URL}/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
+              `?keys=${encodeURIComponent(keysCsv)}&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`;
+  const headers = JWT ? { "X-Authorization": `Bearer ${JWT}` } : {};
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
 
-    console.log("API URL =", url);
+function mergeSeries(obj){
+  const map = new Map();
+  Object.entries(obj).forEach(([key,arr])=>{
+    (arr||[]).forEach(p=>{
+      const t = +p.ts;
+      const row = map.get(t) || { ts: t };
+      row[key] = num(p.value);
+      map.set(t,row);
+    });
+  });
+  return Array.from(map.values()).sort((a,b)=>a.ts-b.ts);
+}
 
-    const response = await fetch(url, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            "X-Authorization": "Bearer " + JWT
-        }
+function smoothPF(rows, n=5){
+  const q=[]; let sum=0;
+  for (let i=0;i<rows.length;i++){
+    const v = rows[i].PF;
+    if (isF(v)){ q.push(v); sum+=v; if(q.length>n){ sum-=q.shift(); } rows[i].PF = sum/q.length; }
+  }
+}
+
+function hourlyEnergyFromRows(rows){
+  const byHour = new Map();
+  rows.forEach(r=>{
+    const d = new Date(r.ts);
+    const bucket = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime();
+    const obj = byHour.get(bucket) || { ts: bucket, perMin: [], reactiveList: [] };
+    if (isF(r.PrrMinConsumption)) obj.perMin.push(r.PrrMinConsumption);
+    if (isF(r.Reactive_Energy)) obj.reactiveList.push(r.Reactive_Energy);
+    byHour.set(bucket, obj);
+  });
+  const out = Array.from(byHour.values()).map(h=>{
+    const kWh = h.perMin.reduce((s,x)=>s+x, 0);
+    let kVArh = 0;
+    if (h.reactiveList.length >= 2){
+      const maxv = Math.max(...h.reactiveList);
+      const minv = Math.min(...h.reactiveList);
+      kVArh = Math.max(0, maxv - minv);
+    }
+    return { ts: h.ts, kWh, kVArh };
+  }).sort((a,b)=>a.ts-b.ts);
+  return out;
+}
+
+function detectLowPFEvents(rows, thr){
+  const events=[]; let cur=null;
+  for (let i=0;i<rows.length;i++){
+    const r = rows[i];
+    const low = isF(r.PF) && r.PF < thr;
+    if (low && !cur){
+      cur = { startTs:r.ts, minPF:r.PF, at:r.ts, kW:r.kW, kVAr:r.kVAr, kVA:r.kVA };
+    }
+    if (low && cur && r.PF < cur.minPF){
+      cur.minPF = r.PF; cur.at = r.ts; cur.kW = r.kW; cur.kVAr = r.kVAr; cur.kVA = r.kVA;
+    }
+    if (!low && cur){
+      cur.endTs = rows[i-1]?.ts ?? r.ts;
+      events.push(cur); cur=null;
+    }
+  }
+  if (cur){ cur.endTs = rows.at(-1)?.ts ?? cur.startTs; events.push(cur); }
+  events.forEach(e=> e.durationMin = Math.max(1, Math.round((e.endTs - e.startTs)/60000)) );
+  return events;
+}
+
+function estimatePenalty(rows){
+  let penalty = 0;
+  for (let i=1;i<rows.length;i++){
+    const a=rows[i-1], b=rows[i];
+    const dtDay = (b.ts - a.ts) / (24*3600*1000);
+    const PF = b.PF ?? a.PF;
+    const kVA = isF(b.kVA) ? b.kVA : (isF(a.kVA) ? a.kVA : 0);
+    if (isF(PF) && PF < CONFIG.LOW_PF_THRESHOLD && isF(kVA)){
+      const delta = Math.max(0, (1/PF) - (1/CONFIG.PF_TARGET));
+      penalty += kVA * delta * CONFIG.DEMAND_RATE_INR_PER_KVA * dtDay;
+    }
+  }
+  return Math.round(penalty);
+}
+
+function renderKPIs(rows, events){
+  const pfs = rows.map(r=>r.PF).filter(isF);
+  const avg = pfs.length ? pfs.reduce((s,x)=>s+x,0)/pfs.length : NaN;
+  const minPF = pfs.length ? Math.min(...pfs) : NaN;
+  const minIdx = pfs.length ? pfs.indexOf(minPF) : -1;
+  const minTs  = minIdx>=0 ? rows[minIdx].ts : null;
+  const lowDur = events.reduce((s,e)=>s+e.durationMin,0);
+  const penalty = estimatePenalty(rows);
+
+  document.getElementById("kpiAvgPF").textContent = isF(avg)?avg.toFixed(2):"—";
+  document.getElementById("kpiMinPF").textContent = isF(minPF)?minPF.toFixed(2):"—";
+  document.getElementById("kpiMinPFTs").textContent = minTs?fmtTs(minTs):"—";
+  document.getElementById("kpiDurationLowPF").textContent = `${lowDur} min`;
+  document.getElementById("kpiPenalty").textContent = penalty.toLocaleString();
+}
+
+function renderPFTrend(rows){
+  const el = document.getElementById("pfTrend");
+  if (!rows.length){
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>';
+    return;
+  }
+
+  const t    = rows.map(r => new Date(r.ts));
+  const pf   = rows.map(r => r.PF);
+  const kw   = rows.map(r => r.kW);
+  const kvar = rows.map(r => r.kVAr);
+
+  Plotly.newPlot("pfTrend", [
+    { x: t, y: pf,   name: "Power Factor",           mode: "lines", line: { width: 2 } },
+    { x: t, y: kvar, name: "Reactive Power (kVAr)",  mode: "lines", yaxis: "y2" },
+    { x: t, y: kw,   name: "Active Power (kW)",      mode: "lines", yaxis: "y2" }
+  ], {
+    margin: { l: 50, r: 60, t: 10, b: 30 },
+    yaxis:  { title: "PF", range: [0, 1.5] },
+    yaxis2: { title: "kW / kVAr", overlaying: "y", side: "right" },
+    shapes: [
+      { type: "line", x0: t[0], x1: t.at(-1), y0: 0.95, y1: 0.95, line: { dash: "dot", color: "#f1c40f" } },
+      { type: "line", x0: t[0], x1: t.at(-1), y0: 0.90, y1: 0.90, line: { dash: "dot", color: "#e74c3c" } }
+    ],
+    legend: { orientation: "h" }
+  }, { displaylogo: false, responsive: true });
+}
+
+
+function renderEnergyBars(hourly){
+  const el = document.getElementById("energyBars");
+  if (!hourly.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
+  const x = hourly.map(h=>new Date(h.ts));
+   Plotly.newPlot("energyBars", [
+    { x, y: hourly.map(h=>h.kWh),  name:"kWh",   type:"bar" },
+    { x, y: hourly.map(h=>h.kVArh),name:"kVArh", type:"bar" }
+  ], {
+    barmode:"group",
+    margin:{l:40,r:10,t:10,b:20},   
+    legend:{
+      orientation:"h",              
+      yanchor:"top",
+      y:-0.3,                    
+      xanchor:"center",
+      x:0.5
+    }
+  }, {displaylogo:false,responsive:true});
+}
+
+function renderScatter(rows){
+  const el = document.getElementById("pfScatter");
+  if (!rows.length){ el.innerHTML = '<div style="text-align:center;padding:2rem;color:#666">No data</div>'; return; }
+  const x = rows.map(r=>r.kW);
+  const y = rows.map(r=>r.PF);
+  Plotly.newPlot("pfScatter", [{x,y,mode:"markers",name:"PF vs kW"}],
+    {margin:{l:40,r:10,t:10,b:40}, xaxis:{title:"kW"}, yaxis:{title:"PF", range:[0,1.5]}},
+    {displaylogo:false,responsive:true});
+}
+
+function renderEvents(events){
+  const tb = document.getElementById("eventsBody");
+  tb.innerHTML = "";
+  if (!events.length){ tb.innerHTML = '<tr><td colspan="7">No low PF events</td></tr>'; return; }
+  events.forEach(e=>{
+    const tr = document.createElement("tr");
+    [fmtTs(e.startTs), fmtTs(e.endTs), e.minPF.toFixed(2),
+     (e.kW??0).toFixed(0), (e.kVAr??0).toFixed(0), (e.kVA??0).toFixed(0),
+     e.durationMin].forEach(v=>{
+      const td=document.createElement("td"); td.textContent=v; tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+}
+
+async function generate(){
+  const dateStr = document.getElementById("dateInput").value;
+  if (!JWT){ alert("Missing token in URL (?token=)"); return; }
+
+  document.getElementById("status").textContent = "Fetching…";
+  document.getElementById("reportDateLabel").textContent = dateStr;
+  document.getElementById("generatedAt").textContent = new Date().toLocaleString();
+  document.getElementById("deviceShown").textContent = DEVICE_ID;
+
+  const start = new Date(dateStr+"T00:00:00");
+  const end   = new Date(dateStr+"T23:59:59");
+
+  try{
+    const json = await fetchTS(DEVICE_ID, CONFIG.KEYS.join(","), start.getTime(), end.getTime());
+
+    const rows = mergeSeries(json).map(r=>{
+      const kW   = num(r.Active_Power);
+      const kVAr = num(r.Reactive_Power);
+      const kVA  = isF(r.Apparent_Power) ? r.Apparent_Power :
+                   (isF(kW)&&isF(kVAr)) ? Math.sqrt(kW*kW + kVAr*kVAr) : NaN;
+      const pf   = isF(r.Power_Factor) ? r.Power_Factor :
+                   (isF(kW)&&isF(kVA)&&kVA>0 ? kW/kVA : NaN);
+      return {
+        ts: r.ts, kW, kVAr, kVA, PF: pf,
+        PrrMinConsumption: num(r.PrrMinConsumption),
+        Reactive_Energy: num(r.Reactive_Energy),
+        Apparent_Energy: num(r.Apparent_Energy)
+      };
     });
 
-    console.log("Response Status =", response.status);
+    smoothPF(rows, 5);
+    const hourly = hourlyEnergyFromRows(rows);
+    const events = detectLowPFEvents(rows, CONFIG.LOW_PF_THRESHOLD);
 
-    if (!response.ok) {
-        throw new Error("API ERROR : " + response.status);
-    }
+    renderKPIs(rows, events);
+    renderPFTrend(rows);
+    renderEnergyBars(hourly);
+    renderScatter(rows);
+    renderEvents(events);
 
-    return await response.json();
+    document.getElementById("status").textContent = "Done";
+  }catch(err){
+    console.error(err);
+    document.getElementById("status").textContent = "Error";
+    alert("Failed to fetch/build report.\n" + err.message);
+  }
 }
 
-/* =========================================================
-   PARSE DATA
-========================================================= */
+function resizePlots(){
+  ['pfTrend','energyBars','pfScatter'].forEach(id=>{
+    const el=document.getElementById(id);
+    try{ Plotly.Plots.resize(el); }catch(e){}
+  });
+}
 
-function parseTelemetry(apiData) {
+/* Export: 3 explicit PDF pages (landscape), near-zero margins */
+async function exportPDF(){
+  const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+  if (!jsPDFCtor){ alert('jsPDF failed to load. Check CDN connectivity.'); return; }
 
-    const arr = apiData.chiller_plant_1 || [];
+  const dateStr = document.getElementById('reportDateLabel').textContent || 'Report';
 
-    return arr.map(item => {
+  document.body.classList.add('pdf');
+  await new Promise(r=>setTimeout(r,120));
+  resizePlots();
+  await new Promise(r=>setTimeout(r,140));
 
-        let parsed = {};
+  const pdf = new jsPDFCtor({ orientation:'landscape', unit:'mm', format:'a4' });
+  const margin = 0;
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
 
-        try {
-
-            parsed = JSON.parse(item.value);
-
-        } catch (e) {
-
-            console.error("JSON Parse Error", e);
-        }
-
-        return {
-
-            ts: item.ts,
-
-            /* POWER FACTOR */
-            pf:
-                parseFloat(parsed["18_Avg_PF"]) || 0,
-
-            /* ACTIVE POWER */
-            kw:
-                parseFloat(parsed["18_Act_Power_Total"]) || 0,
-
-            /* ACTIVE ENERGY */
-            kwh:
-                parseFloat(parsed["18_Act_Energy_Total"]) || 0
-        };
+  const addPage = async (node, first=false) => {
+    const canvas = await html2canvas(node, {
+      backgroundColor:'#ffffff',
+      scale:2, useCORS:true, scrollX:0, scrollY:0,
+      windowWidth: node.scrollWidth, windowHeight: node.scrollHeight
     });
+    const img = canvas.toDataURL('image/jpeg', 0.98);
+    const props = pdf.getImageProperties(img);
+    let w = pageW - margin*2;
+    let h = (props.height * w) / props.width;
+    if (h > pageH - margin*2){ h = pageH - margin*2; w = (props.width * h) / props.height; }
+    const x = (pageW - w)/2, y = (pageH - h)/2;
+    if (!first) pdf.addPage('a4','landscape');
+    pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
+  };
+
+  await addPage(document.getElementById('pdfPage1'), true);
+  await addPage(document.getElementById('pdfPage2'));
+  await addPage(document.getElementById('pdfPage3'));
+
+  pdf.save(`Low_PF_Report_${dateStr}.pdf`);
+
+  document.body.classList.remove('pdf');
+  await new Promise(r=>setTimeout(r,60));
+  resizePlots();
 }
 
-/* =========================================================
-   GENERATE REPORT
-========================================================= */
-
-async function generateReport() {
-
-    try {
-
-        const selectedDate =
-            new Date(document.getElementById("datePicker").value);
-
-        const startTs = selectedDate.getTime();
-
-        const endTs = startTs + 86400000;
-
-        const rawData =
-            await fetchTelemetry(startTs, endTs);
-
-        console.log("RAW DATA =", rawData);
-
-        const data =
-            parseTelemetry(rawData);
-
-        console.log("PARSED DATA =", data);
-
-        /* ================= KPI ================= */
-
-        const avgPF =
-            data.reduce((a, b) => a + b.pf, 0) / data.length;
-
-        const minPF =
-            Math.min(...data.map(x => x.pf));
-
-        const lowPFDuration =
-            data.filter(x => x.pf < 0.90).length;
-
-        const estimatedPenalty =
-            (lowPFDuration * 12).toFixed(0);
-
-        document.getElementById("avgPF").innerHTML =
-            avgPF.toFixed(3);
-
-        document.getElementById("minPF").innerHTML =
-            minPF.toFixed(3);
-
-        document.getElementById("lowPFDuration").innerHTML =
-            lowPFDuration;
-
-        document.getElementById("penalty").innerHTML =
-            estimatedPenalty;
-
-        /* ================= CHART ================= */
-
-        pfChart.data.labels =
-            data.map(x => {
-
-                const d = new Date(x.ts);
-
-                return d.toLocaleTimeString();
-            });
-
-        pfChart.data.datasets[0].data =
-            data.map(x => x.pf);
-
-        pfChart.data.datasets[1].data =
-            data.map(x => x.kw);
-
-        pfChart.update();
-
-        /* ================= TABLE ================= */
-
-        let html = "";
-
-        data.forEach(x => {
-
-            const status =
-                x.pf < 0.90
-                    ? '<span class="low">LOW PF</span>'
-                    : '<span class="normal">NORMAL</span>';
-
-            html += `
-            <tr>
-                <td>${new Date(x.ts).toLocaleString()}</td>
-                <td>${x.pf.toFixed(3)}</td>
-                <td>${x.kw.toFixed(2)}</td>
-                <td>${x.kwh.toFixed(2)}</td>
-                <td>${status}</td>
-            </tr>
-            `;
-        });
-
-        document.getElementById("eventTable").innerHTML =
-            html;
-
-    } catch (err) {
-
-        console.error("Fetch Error =", err);
-
-        document.getElementById("statusText").innerHTML =
-            "Error loading telemetry";
-    }
-}
-
-/* =========================================================
-   AUTO LOAD
-========================================================= */
-
-generateReport();
-
-</script>
-
+/* Auto-run if token present */
+window.addEventListener("load", ()=>{ if (JWT){ generate(); } });</script>
 </body>
 </html>
